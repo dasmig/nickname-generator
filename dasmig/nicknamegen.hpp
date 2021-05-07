@@ -1,0 +1,234 @@
+#include <string>
+#include <vector>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <random>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+
+// Written by Diego Dasso Migotto - diegomigotto at hotmail dot com
+namespace dasmig
+{
+    // The nickname generator generates as realistic as possible gamers nicknames 
+    // akin to professional players, allowing requests specifying the player name.
+    class nng
+    {
+        public:
+            // Use to index the wordlists by content.
+            enum class content
+            {
+                general,
+                gamer,
+                any
+            };
+
+            // Thread safe access to nickname generator singleton.
+            static nng& instance() { static nng instance; return instance; }
+
+            // Generates a nickname based on requested name(optional).
+            std::wstring get_nickname(std::wstring name = L"") const { return solver(name); };   
+
+            // Try loading every possible wordlists file from the received resource path.
+            void load(const std::filesystem::path& resource_path) 
+            { 
+                for (auto& f : std::filesystem::recursive_directory_iterator(resource_path))
+                    if (f.is_regular_file() && (f.path().extension() == ".words"))
+                        parse_file(f);
+            };
+
+        private:
+            // Typedef to avoid type horror when defining a pointer to a container of names.
+            typedef std::shared_ptr<std::vector<std::wstring>> word_container;
+
+            // Default folder to look for wordlists resources. 
+            static const inline std::filesystem::path _default_resources_path = "resources";
+
+            // Maps for accessing wordlists through type.
+            std::map<content, word_container> _content_indexed_words;
+
+            // Initialize random generator, no complicated processes.
+            nng() { load(_default_resources_path); };
+
+            // We don't manage any resource, all should gracefully deallocate by itself.
+            ~nng() {};
+
+            // Slightly modify the nickname to add some flavor.
+            static std::wstring leetify(const std::wstring& nickname) { return nickname; }
+
+            // Split a full name into a vector containing each name/surname.
+            static std::vector<std::wstring> split_name(const std::wstring& name) 
+            {
+                return std::vector<std::wstring>();
+            }
+
+            // Returns the first name.
+            static std::wstring first_name(const std::wstring& name) { return *(split_name(name).cbegin()); }
+
+            // Returns the last surname.
+            static std::wstring last_name(const std::wstring& name) { return *(split_name(name).crbegin()); }
+            
+            // Returns any name (until it hits a space character).
+            static std::wstring any_name(const std::wstring& name) 
+            { 
+                // Container with names/surnames that compose the received name.
+                auto names_list = split_name(name);
+
+                // Utilized to randomize nickname content.
+                std::random_device random_device;
+                
+                // Distribution of possible names.
+                std::uniform_int_distribution<std::size_t> default_distribution(0, names_list.size());
+
+                return names_list.at(default_distribution(random_device)); 
+            }
+
+            // Returns only the name initials.
+            static std::wstring initials(const std::wstring& name) 
+            { 
+                // Generated nickname containing each name first letter.
+                std::wstring nickname(L"");
+
+                // Container with names/surnames that compose the received name.
+                auto names_list = split_name(name);
+
+                // Iterate through each name retrieving first letter.
+                for (const auto& name : names_list)
+                {
+                    nickname.push_back(*(name.cbegin()));
+                }
+
+                return nickname;
+            }
+
+            // Mix the last two names.
+            static std::wstring mix_two(const std::wstring& name) 
+            { 
+                // Generated nickname containing a part the last two names.
+                std::wstring nickname(L"");
+
+                // Container with names/surnames that compose the received name.
+                auto names_list = split_name(name);
+
+                // Reduce name list to two names.
+                while (names_list.size() > 2)
+                {
+                    names_list.erase(names_list.begin());
+                }
+
+                // Iterate through each name retrieving random number of letters.
+                for (const auto& name : names_list)
+                {
+                    // Utilized to randomize nickname content.
+                    std::random_device random_device;
+                    
+                    // Distribution of possible names.
+                    std::normal_distribution<std::size_t> normal_distribution(1, name.size());
+
+                    nickname.append(name.substr(0, normal_distribution(random_device)));
+                }
+
+                return nickname;
+            }
+
+            // Contains logic to generate a random nickname optionally based on the player full name. 
+            std::wstring solver(const std::wstring& name) const 
+            {
+                // Utilized to randomize nickname content.
+                std::random_device random_device;
+                
+                // 100% Percentage distribution.
+                std::uniform_int_distribution<std::size_t> default_distribution(0, 99);
+
+                // Chance of randomizing a nickname directly derived from player name.
+                const std::size_t name_related_nickname_chance(25); 
+
+                // Proceed to generate nickname based on name.
+                if (default_distribution(random_device) < name_related_nickname_chance)
+                {
+                    // Possible methods utilized to generate a nickname.
+                    // Purposefully adds redundancy to first and last name with any name to add double weight to them.
+                    std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators =
+                    {
+                        dasmig::nng::first_name,
+                        dasmig::nng::last_name,
+                        dasmig::nng::any_name,
+                        dasmig::nng::initials,
+                        dasmig::nng::mix_two
+                        // edrd, dasmig - migotto - ddm - dasmig - 
+                        // Last or first + intials
+                        // Any reduced - gbrl - dgo - edrd - srg mgt
+                    };
+
+                    // Return a nickname from one of the possibilities, possibly leetified in some way.
+                    return leetify((possible_generators.at(default_distribution(random_device) % possible_generators.size()))(name));
+                }
+                // Proceed to generate nickname based on a word list. 
+                else
+                    // Distribution of possible wordlist content values.  
+                    std::uniform_int_distribution<std::size_t> content_range(0, static_cast<std::size_t>(content::any) - 1);
+
+                    // Randomly select a content.
+                    content random_content = static_cast<content>(content_range(random_device));
+
+                    return L"";
+                }
+            };
+
+            // Translates possible wordlists types to content enum.
+            static content to_content(const std::wstring& type_string) 
+            {
+                static const std::map<std::wstring, content> content_map = {
+                    { L"general", content::general },
+                    { L"gamer", content::gamer }
+                };
+
+                return (content_map.find(type_string) != content_map.end()) ? content_map.at(type_string) : content::any; 
+            }
+
+            // Try parsing the wordlist file and index it into our container.
+            void parse_file(const std::filesystem::path& file) 
+            {
+                // Expected wordlist file format is content type string, list of words.
+                std::wifstream tentative_file(file);
+
+                // If managed to open the file proceed.
+                if (tentative_file.is_open())
+                {
+                    // Expected delimiter character.
+                    const wchar_t delimiter('\n');
+
+                    // Line being read from the file.
+                    std::wstring file_line;
+
+                    // Content type read from file header.
+                    content content_read = content::any;
+
+                    // List of parsed words.
+                    word_container words_read = std::make_shared<std::vector<std::wstring>>();
+
+                    // Retrieves content from file being read.
+                    if (std::getline(tentative_file, file_line, delimiter))
+                    {
+                        content_read = to_content(file_line);
+                    }
+
+                    // We can't continue without a valid content type.
+                    if (content_read != content::any)
+                    {                            
+                        // Retrieves list of words.
+                        while (std::getline(tentative_file, file_line, delimiter))
+                        {
+                            words_read->push_back(file_line);
+                        }
+
+                        // Index our container.
+                        _content_indexed_words.emplace(content_read, words_read);
+                    }
+                }
+            }
+
+    };
+
+}
