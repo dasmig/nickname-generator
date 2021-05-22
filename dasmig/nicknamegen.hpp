@@ -55,19 +55,33 @@ namespace dasmig
             ~nng() {};
 
             // Slightly modify the nickname to add some flavor.
-            static std::wstring leetify(const std::wstring& nickname) { return nickname; }
+            static std::wstring leetify(const std::wstring& nickname) { return nickname; };
 
             // Split a full name into a vector containing each name/surname.
             static std::vector<std::wstring> split_name(const std::wstring& name) 
-            {
-                return std::vector<std::wstring>();
-            }
+            {  
+                // Container with names/surnames split by space character.
+                std::vector<std::wstring> splitted_name;
+
+                // String to ease the name splitting.
+                std::wstringstream full_name_stream(name);
+
+                // Single part of the full name.
+                std::wstring single_name = L"";
+
+                while (std::getline(full_name_stream, single_name, L' ' ))
+                {
+                    splitted_name.push_back(single_name);
+                }
+                
+                return splitted_name;
+            };
 
             // Returns the first name.
-            static std::wstring first_name(const std::wstring& name) { return *(split_name(name).cbegin()); }
+            static std::wstring first_name(const std::wstring& name) { return *(split_name(name).cbegin()); };
 
             // Returns the last surname.
-            static std::wstring last_name(const std::wstring& name) { return *(split_name(name).crbegin()); }
+            static std::wstring last_name(const std::wstring& name) { return *(split_name(name).crbegin()); };
             
             // Returns any name (until it hits a space character).
             static std::wstring any_name(const std::wstring& name) 
@@ -82,7 +96,7 @@ namespace dasmig
                 std::uniform_int_distribution<std::size_t> default_distribution(0, names_list.size());
 
                 return names_list.at(default_distribution(random_device)); 
-            }
+            };
 
             // Returns only the name initials.
             static std::wstring initials(const std::wstring& name) 
@@ -100,7 +114,7 @@ namespace dasmig
                 }
 
                 return nickname;
-            }
+            };
 
             // Mix the last two names.
             static std::wstring mix_two(const std::wstring& name) 
@@ -124,13 +138,13 @@ namespace dasmig
                     std::random_device random_device;
                     
                     // Distribution of possible names.
-                    std::normal_distribution<std::size_t> normal_distribution(1, name.size());
+                    std::uniform_int_distribution<std::size_t> normal_distribution(2, name.size());
 
                     nickname.append(name.substr(0, normal_distribution(random_device)));
                 }
 
                 return nickname;
-            }
+            };
 
             // Contains logic to generate a random nickname optionally based on the player full name. 
             std::wstring solver(const std::wstring& name) const 
@@ -138,14 +152,11 @@ namespace dasmig
                 // Utilized to randomize nickname content.
                 std::random_device random_device;
                 
-                // 100% Percentage distribution.
-                std::uniform_int_distribution<std::size_t> default_distribution(0, 99);
-
-                // Chance of randomizing a nickname directly derived from player name.
-                const std::size_t name_related_nickname_chance(25); 
+                // 1/4 chance of nickname being name related.
+                std::uniform_int_distribution<std::size_t> default_distribution(0, 3);
 
                 // Proceed to generate nickname based on name.
-                if (default_distribution(random_device) < name_related_nickname_chance)
+                if (default_distribution(random_device) == 0)
                 {
                     // Possible methods utilized to generate a nickname.
                     // Purposefully adds redundancy to first and last name with any name to add double weight to them.
@@ -160,12 +171,16 @@ namespace dasmig
                         // Last or first + intials
                         // Any reduced - gbrl - dgo - edrd - srg mgt
                     };
+                
+                    // Possible choices of name based nickname algorithm.
+                    std::uniform_int_distribution<std::size_t> name_algorithm_distribution(0, possible_generators.size() - 1);
 
                     // Return a nickname from one of the possibilities, possibly leetified in some way.
-                    return leetify((possible_generators.at(default_distribution(random_device) % possible_generators.size()))(name));
+                    return leetify((possible_generators.at(name_algorithm_distribution(random_device)))(name));
                 }
                 // Proceed to generate nickname based on a word list. 
                 else
+                {
                     // Distribution of possible wordlist content values.  
                     std::uniform_int_distribution<std::size_t> content_range(0, static_cast<std::size_t>(content::any) - 1);
 
@@ -185,7 +200,7 @@ namespace dasmig
                 };
 
                 return (content_map.find(type_string) != content_map.end()) ? content_map.at(type_string) : content::any; 
-            }
+            };
 
             // Try parsing the wordlist file and index it into our container.
             void parse_file(const std::filesystem::path& file) 
