@@ -93,7 +93,7 @@ namespace dasmig
                 std::random_device random_device;
                 
                 // Distribution of possible names.
-                std::uniform_int_distribution<std::size_t> default_distribution(0, names_list.size());
+                std::uniform_int_distribution<std::size_t> default_distribution(0, names_list.size() - 1);
 
                 return names_list.at(default_distribution(random_device)); 
             };
@@ -146,6 +146,46 @@ namespace dasmig
                 return nickname;
             };
 
+            // Mix first name with last name initial.
+            static std::wstring first_plus_initial(const std::wstring& name) 
+            {
+                // Container with names/surnames that compose the received name.
+                auto names_list = split_name(name);
+
+                return *(names_list.cbegin()) + names_list.crbegin()->front();
+            }
+
+            // Mix last name with first name initial.
+            static std::wstring initial_plus_last(const std::wstring& name) 
+            {
+                // Container with names/surnames that compose the received name.
+                auto names_list = split_name(name);
+
+                return *(names_list.crbegin()) + names_list.cbegin()->front();
+            }
+
+            // Reduce a random part of the name.
+            static std::wstring reduce_single_name(const std::wstring& name) 
+            {
+                // Random part of name.
+                std::wstring single_name = any_name(name);
+                
+                // Contains all vowel characters.
+                std::wstring vowels = L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ";
+
+                if (single_name.size() > 3)
+                {
+                    // Remove all vowel characters from the name unless it's already small enough.
+                    std::remove_if(single_name.begin() + 1, single_name.end() - 1,
+                        [&vowels, &single_name](const wchar_t& character)
+                        { 
+                            return (vowels.find(character) && (single_name.size() > 3)); 
+                        });
+                }
+                
+                return single_name;
+            }
+
             // Contains logic to generate a random nickname optionally based on the player full name. 
             std::wstring solver(const std::wstring& name) const 
             {
@@ -162,14 +202,14 @@ namespace dasmig
                     // Purposefully adds redundancy to first and last name with any name to add double weight to them.
                     std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators =
                     {
-                        dasmig::nng::first_name,
-                        dasmig::nng::last_name,
-                        dasmig::nng::any_name,
-                        dasmig::nng::initials,
-                        dasmig::nng::mix_two
-                        // edrd, dasmig - migotto - ddm - dasmig - 
-                        // Last or first + intials
-                        // Any reduced - gbrl - dgo - edrd - srg mgt
+                        first_name,
+                        last_name,
+                        any_name,
+                        initials,
+                        mix_two,
+                        initial_plus_last,
+                        first_plus_initial,
+                        reduce_single_name
                     };
                 
                     // Possible choices of name based nickname algorithm.
