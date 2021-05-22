@@ -16,14 +16,6 @@ namespace dasmig
     class nng
     {
         public:
-            // Use to index the wordlists by content.
-            enum class content
-            {
-                general,
-                gamer,
-                any
-            };
-
             // Thread safe access to nickname generator singleton.
             static nng& instance() { static nng instance; return instance; }
 
@@ -39,14 +31,14 @@ namespace dasmig
             };
 
         private:
-            // Typedef to avoid type horror when defining a pointer to a container of names.
-            typedef std::shared_ptr<std::vector<std::wstring>> word_container;
+            // Typedef to avoid type horror when defining a container of names.
+            typedef std::vector<std::wstring> word_container;
 
             // Default folder to look for wordlists resources. 
             static const inline std::filesystem::path _default_resources_path = "resources";
 
-            // Maps for accessing wordlists through type.
-            std::map<content, word_container> _content_indexed_words;
+            // Vector for randomly accessing wordlists.
+            std::vector<word_container> _content_indexed_words;
 
             // Initialize random generator, no complicated processes.
             nng() { load(_default_resources_path); };
@@ -222,24 +214,13 @@ namespace dasmig
                 else
                 {
                     // Distribution of possible wordlist content values.  
-                    std::uniform_int_distribution<std::size_t> content_range(0, static_cast<std::size_t>(content::any) - 1);
+                    std::uniform_int_distribution<std::size_t> content_range(0, _content_indexed_words.size() - 1);
 
                     // Randomly select a content.
-                    content random_content = static_cast<content>(content_range(random_device));
+                    std::size_t random_content = content_range(random_device);
 
                     return L"";
                 }
-            };
-
-            // Translates possible wordlists types to content enum.
-            static content to_content(const std::wstring& type_string) 
-            {
-                static const std::map<std::wstring, content> content_map = {
-                    { L"general", content::general },
-                    { L"gamer", content::gamer }
-                };
-
-                return (content_map.find(type_string) != content_map.end()) ? content_map.at(type_string) : content::any; 
             };
 
             // Try parsing the wordlist file and index it into our container.
@@ -257,33 +238,18 @@ namespace dasmig
                     // Line being read from the file.
                     std::wstring file_line;
 
-                    // Content type read from file header.
-                    content content_read = content::any;
-
                     // List of parsed words.
-                    word_container words_read = std::make_shared<std::vector<std::wstring>>();
+                    word_container words_read = std::vector<std::wstring>();
 
-                    // Retrieves content from file being read.
-                    if (std::getline(tentative_file, file_line, delimiter))
+                    // Retrieves list of words.
+                    while (std::getline(tentative_file, file_line, delimiter))
                     {
-                        content_read = to_content(file_line);
+                        words_read.push_back(file_line);
                     }
 
-                    // We can't continue without a valid content type.
-                    if (content_read != content::any)
-                    {                            
-                        // Retrieves list of words.
-                        while (std::getline(tentative_file, file_line, delimiter))
-                        {
-                            words_read->push_back(file_line);
-                        }
-
-                        // Index our container.
-                        _content_indexed_words.emplace(content_read, words_read);
-                    }
+                    // Index our container.
+                    _content_indexed_words.push_back(words_read);
                 }
             }
-
     };
-
 }
