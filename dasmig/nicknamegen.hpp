@@ -38,7 +38,7 @@ namespace dasmig
             static const inline std::filesystem::path _default_resources_path = "resources";
 
             // Vector for randomly accessing wordlists.
-            std::vector<word_container> _content_indexed_words;
+            std::vector<word_container> _wordlists;
 
             // Initialize random generator, no complicated processes.
             nng() { load(_default_resources_path); };
@@ -47,7 +47,61 @@ namespace dasmig
             ~nng() {};
 
             // Slightly modify the nickname to add some flavor.
-            static std::wstring leetify(const std::wstring& nickname) { return nickname; };
+            static std::wstring leetify(const std::wstring& nickname) 
+            {
+                // Utilized to randomize leetify probability content.
+                std::random_device random_device;
+                
+                // Distribution of possible leetifying probability (50%).
+                std::uniform_int_distribution<std::size_t> leetify_distribution(0, 1);
+
+                // Leetify
+                // nickname2000
+                // 100nicknames
+                // nicknameX
+                // n1ckname
+                // n1ckn4m3
+                // nicknamee
+                // nicknaming
+                // nicknamy
+                // nikname
+                // nickname-
+                // colornickname
+                // adjectivenickname
+                // emankcin
+
+                // We have 1/2 chance of keeping leetifying after a leetification.
+                if (leetify_distribution(random_device))
+                {
+                    return leetify(nickname);
+                }
+                else
+                {
+                    return nickname;
+                }
+            };
+
+            // Format nickname utilizing one of the possible cases.
+            static std::wstring format(const std::wstring& nickname) 
+            {
+                // Utilized to randomize leetify probability content.
+                std::random_device random_device;
+                
+                // Distribution of possible leetifying probability (50%).
+                std::uniform_int_distribution<std::size_t> leetify_distribution(0, 1);
+
+                // Format
+                // nIcKnAmE
+                // Nickname
+                // nicknamE
+                // nickname
+                // NICKNAME
+                // nickName                
+                // nick_name
+                // NickName
+
+                return nickname;
+            };
 
             // Split a full name into a vector containing each name/surname.
             static std::vector<std::wstring> split_name(const std::wstring& name) 
@@ -187,6 +241,9 @@ namespace dasmig
                 // 1/4 chance of nickname being name related.
                 std::uniform_int_distribution<std::size_t> default_distribution(0, 3);
 
+                // Holds the nickname being generated.
+                std::wstring nickname = L"";
+
                 // Proceed to generate nickname based on name.
                 if (default_distribution(random_device) == 0)
                 {
@@ -207,20 +264,26 @@ namespace dasmig
                     // Possible choices of name based nickname algorithm.
                     std::uniform_int_distribution<std::size_t> name_algorithm_distribution(0, possible_generators.size() - 1);
 
-                    // Return a nickname from one of the possibilities, possibly leetified in some way.
-                    return leetify((possible_generators.at(name_algorithm_distribution(random_device)))(name));
+                    // Return a nickname from one of the name based possibilities.
+                    nickname = possible_generators.at(name_algorithm_distribution(random_device))(name);
                 }
                 // Proceed to generate nickname based on a word list. 
                 else
                 {
-                    // Distribution of possible wordlist content values.  
-                    std::uniform_int_distribution<std::size_t> content_range(0, _content_indexed_words.size() - 1);
+                    // Distribution of possible wordlist.  
+                    std::uniform_int_distribution<std::size_t> wordlists_range(0, _wordlists.size() - 1);
 
-                    // Randomly select a content.
-                    std::size_t random_content = content_range(random_device);
+                    // Randomly select a worldist.
+                    auto drawn_wordlist = _wordlists.at(wordlists_range(random_device));
 
-                    return L"";
+                    // Distribution of possible words.  
+                    std::uniform_int_distribution<std::size_t> drawn_wordlist_range(0, drawn_wordlist.size() - 1);
+
+                    // Randomly selects a word from the worldist.
+                    nickname = drawn_wordlist.at(drawn_wordlist_range(random_device));
                 }
+                
+                return format(leetify(nickname));
             };
 
             // Try parsing the wordlist file and index it into our container.
@@ -248,7 +311,7 @@ namespace dasmig
                     }
 
                     // Index our container.
-                    _content_indexed_words.push_back(words_read);
+                    _wordlists.push_back(words_read);
                 }
             }
     };
