@@ -7,6 +7,7 @@
 #include <filesystem>
 #include <fstream>
 #include <functional>
+#include <cwctype>
 
 // Written by Diego Dasso Migotto - diegomigotto at hotmail dot com
 namespace dasmig
@@ -79,6 +80,24 @@ namespace dasmig
                 {
                     return nickname;
                 }
+            };
+
+            // Returns the nickname with an underscore separating its original parts.
+            static std::wstring snakefy_case(const std::wstring& name) 
+            { 
+                // Name containing underscore.
+                std::wstring snakefied_name = name;
+
+                for (std::size_t i = 1; i < snakefied_name.size(); i++)
+                {
+                    if (iswupper(snakefied_name.at(i)))
+                    {
+                        snakefied_name.insert(i, L"_");
+                        i++;
+                    }
+                }
+
+                return *(split_name(name).cbegin());
             };
 
             // Format nickname utilizing one of the possible cases.
