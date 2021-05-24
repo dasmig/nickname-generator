@@ -87,20 +87,38 @@ namespace dasmig
                 // Utilized to randomize leetify probability content.
                 std::random_device random_device;
                 
-                // Distribution of possible leetifying probability (50%).
-                std::uniform_int_distribution<std::size_t> leetify_distribution(0, 1);
+                // Chance of turning into snake case.
+                std::uniform_int_distribution<std::size_t> format_algorithm_distribution(0, 99);
 
-                // Format
-                // nIcKnAmE
-                // Nickname
-                // nicknamE
-                // nickname
-                // NICKNAME
-                // nickName                
-                // nick_name
-                // NickName
+                // Nickname being randomly formatted.
+                std::wstring formatted_nickname = nickname;
 
-                return nickname;
+                // 1% chance of snake case. nick_name
+                if (!format_algorithm_distribution(random_device))
+                {
+                    //formatted_nickname = snake_casefy(formatted_nickname);
+                }
+
+                // Possible methods utilized to format the nickname.
+                // Repeat functions to enforce a distribution.
+                std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators =
+                {
+                    // upper_case, upper_case, upper_case, upper_case,                                                 // NICKNAME
+                    // lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, // nickname
+                    // title_case, title_case,                                                                         // NickName
+                    // sentence_case, sentence_case, sentence_case, sentence_case, sentence_case,                      // Nickname
+                    // camel_case, camel_case,                                                                         // nickName
+                    // reverse_title_case, reverse_title_case,                                                         // nicknamE
+                    // bathtub_case, bathtub_case, bathtub_case,                                                       // NicknamE
+                    // winding_case,                                                                                   // nIcKnAmE
+                    // random_case,                                                                                    // niCKnaMe
+                    // random_single_case                                                                              // nicknaMe
+                };
+                
+                // Possible choices of formatting algorithm.
+                std::uniform_int_distribution<std::size_t> format_algorithm_distribution(0, possible_generators.size() - 1);
+
+                return possible_generators.at(format_algorithm_distribution(random_device))(formatted_nickname);
             };
 
             // Split a full name into a vector containing each name/surname.
@@ -115,7 +133,7 @@ namespace dasmig
                 // Single part of the full name.
                 std::wstring single_name = L"";
 
-                while (std::getline(full_name_stream, single_name, L' ' ))
+                while (std::getline(full_name_stream, single_name, L' '))
                 {
                     splitted_name.push_back(single_name);
                 }
@@ -251,14 +269,14 @@ namespace dasmig
                     // Purposefully adds redundancy to first and last name with any name to add double weight to them.
                     std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators =
                     {
-                        first_name,
-                        last_name,
-                        any_name,
-                        initials,
-                        mix_two,
-                        initial_plus_last,
-                        first_plus_initial,
-                        reduce_single_name
+                        first_name,             // John
+                        last_name,              // Doe
+                        any_name,               // Smith
+                        initials,               // JSD
+                        mix_two,                // DoSmi
+                        initial_plus_last,      // JSmith
+                        first_plus_initial,     // JohnS
+                        reduce_single_name      // Jhn
                     };
                 
                     // Possible choices of name based nickname algorithm.
