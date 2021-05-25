@@ -83,11 +83,12 @@ namespace dasmig
             };
 
             // Returns the nickname with an underscore separating its original parts.
-            static std::wstring snakefy_case(const std::wstring& name) 
+            static std::wstring snake_case(const std::wstring& name) 
             { 
                 // Name containing underscore.
                 std::wstring snakefied_name = name;
 
+                // Introduce an underscore if it's the begginning of a part of the nickname, except the first.
                 for (std::size_t i = 1; i < snakefied_name.size(); i++)
                 {
                     if (iswupper(snakefied_name.at(i)))
@@ -99,6 +100,112 @@ namespace dasmig
 
                 return *(split_name(name).cbegin());
             };
+                        
+            // Returns the nickname in all uppercase.
+            static std::wstring upper_case(const std::wstring& name) 
+            { 
+                // Name in all upper case characters.
+                std::wstring upper_name = name;
+
+                // Transform every character to uppercase if possible.
+                std::for_each(std::begin(upper_name), std::end(upper_name), [](wchar_t& character)
+                {
+                    character = towupper(character);
+                });
+
+                return upper_name;
+            };
+                        
+            // Returns the nickname in all lowercase.
+            static std::wstring lower_case(const std::wstring& name) 
+            { 
+                // Name in all lower case characters.
+                std::wstring lower_name = name;
+
+                // Transform every character to lower if possible.
+                std::for_each(std::begin(lower_name), std::end(lower_name), [](wchar_t& character)
+                {
+                    character = towlower(character);
+                });
+
+                return lower_name;
+            };
+
+            // Returns the nickname in title case.
+            static std::wstring title_case(const std::wstring& name) 
+            { 
+                // Well, titlecase is actually the default.
+                return name;
+            };
+
+            // Returns the nickname in sentence case.
+            static std::wstring sentence_case(const std::wstring& name) 
+            { 
+                // Sentence case formatted nickname.
+                std::wstring sentence_name = lower_case(name);
+
+                // Transform the first character to upper case.
+                sentence_name.at(0) = towupper(sentence_name.at(0));
+
+                return sentence_name;
+            };
+
+            // Returns the nickname in camel case.
+            static std::wstring camel_case(const std::wstring& name) 
+            { 
+                // Camel case formatted nickname.
+                std::wstring camel_name = name;
+
+                // Transform the first character to lower case.
+                camel_name.at(0) = towlower(camel_name.at(0));
+
+                return camel_name;
+            };
+
+            // Returns the nickname in reverse sentence case.
+            static std::wstring reverse_sentence_case(const std::wstring& name) 
+            { 
+                // Reverse sentence case formatted nickname.
+                std::wstring rsentence_name = lower_case(name);
+
+                // Transform the last character to upper case.
+                rsentence_name.at(rsentence_name.size() - 1) = towupper(rsentence_name.at(rsentence_name.size() - 1));
+
+                return rsentence_name;
+            };
+
+            // Returns the nickname in bathtub case.
+            static std::wstring bathtub_case(const std::wstring& name) 
+            { 
+                // Bathtub case formatted nickname.
+                std::wstring bathtub_name = lower_case(name);
+                
+                // Transform the first character to upper case.
+                bathtub_name.at(0) = towupper(bathtub_name.at(0));
+
+                // Transform the last character to upper case.
+                bathtub_name.at(bathtub_name.size() - 1) = towupper(bathtub_name.at(bathtub_name.size() - 1));
+
+                return bathtub_name;
+            };
+
+            // Returns the nickname in winding case.
+            static std::wstring winding_case(const std::wstring& name) 
+            { 
+                // Winding case formatted nickname.
+                std::wstring winding_name = lower_case(name);
+
+                // Transform to uppercase half of the letters.
+                for (std::size_t i = 0; i < winding_name.size(); i++)
+                {
+                    if (!(i % 2))
+                    {
+                        winding_name.at(i) = towupper(winding_name.at(i));
+                    }
+                }
+
+                return winding_name;
+            };
 
             // Format nickname utilizing one of the possible cases.
             static std::wstring format(const std::wstring& nickname) 
@@ -107,29 +214,29 @@ namespace dasmig
                 std::random_device random_device;
                 
                 // Chance of turning into snake case.
-                std::uniform_int_distribution<std::size_t> format_algorithm_distribution(0, 99);
+                std::uniform_int_distribution<std::size_t> snake_algorithm_distribution(0, 99);
 
                 // Nickname being randomly formatted.
                 std::wstring formatted_nickname = nickname;
 
                 // 1% chance of snake case. nick_name
-                if (!format_algorithm_distribution(random_device))
+                if (!snake_algorithm_distribution(random_device))
                 {
-                    //formatted_nickname = snake_casefy(formatted_nickname);
+                    formatted_nickname = snake_case(formatted_nickname);
                 }
 
                 // Possible methods utilized to format the nickname.
                 // Repeat functions to enforce a distribution.
                 std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators =
                 {
-                    // upper_case, upper_case, upper_case, upper_case,                                                 // NICKNAME
-                    // lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, // nickname
-                    // title_case, title_case,                                                                         // NickName
-                    // sentence_case, sentence_case, sentence_case, sentence_case, sentence_case,                      // Nickname
-                    // camel_case, camel_case,                                                                         // nickName
-                    // reverse_title_case, reverse_title_case,                                                         // nicknamE
-                    // bathtub_case, bathtub_case, bathtub_case,                                                       // NicknamE
-                    // winding_case,                                                                                   // nIcKnAmE
+                    upper_case, upper_case, upper_case, upper_case,                                                 // NICKNAME
+                    lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, lower_case, // nickname
+                    title_case, title_case,                                                                         // NickName
+                    sentence_case, sentence_case, sentence_case, sentence_case, sentence_case,                      // Nickname
+                    camel_case, camel_case,                                                                         // nickName
+                    reverse_sentence_case, reverse_sentence_case,                                                   // nicknamE
+                    bathtub_case, bathtub_case, bathtub_case,                                                       // NicknamE
+                    winding_case,                                                                                   // nIcKnAmE
                     // random_case,                                                                                    // niCKnaMe
                     // random_single_case                                                                              // nicknaMe
                 };
