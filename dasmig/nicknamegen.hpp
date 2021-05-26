@@ -110,7 +110,7 @@ namespace dasmig
                 // Transform every character to uppercase if possible.
                 std::for_each(std::begin(upper_name), std::end(upper_name), [](wchar_t& character)
                 {
-                    character = towupper(character);
+                    character = std::towupper(character);
                 });
 
                 return upper_name;
@@ -125,7 +125,7 @@ namespace dasmig
                 // Transform every character to lower if possible.
                 std::for_each(std::begin(lower_name), std::end(lower_name), [](wchar_t& character)
                 {
-                    character = towlower(character);
+                    character = std::towlower(character);
                 });
 
                 return lower_name;
@@ -145,7 +145,7 @@ namespace dasmig
                 std::wstring sentence_name = lower_case(name);
 
                 // Transform the first character to upper case.
-                sentence_name.at(0) = towupper(sentence_name.at(0));
+                sentence_name.at(0) = std::towupper(sentence_name.at(0));
 
                 return sentence_name;
             };
@@ -157,7 +157,7 @@ namespace dasmig
                 std::wstring camel_name = name;
 
                 // Transform the first character to lower case.
-                camel_name.at(0) = towlower(camel_name.at(0));
+                camel_name.at(0) = std::towlower(camel_name.at(0));
 
                 return camel_name;
             };
@@ -169,7 +169,7 @@ namespace dasmig
                 std::wstring rsentence_name = lower_case(name);
 
                 // Transform the last character to upper case.
-                rsentence_name.at(rsentence_name.size() - 1) = towupper(rsentence_name.at(rsentence_name.size() - 1));
+                rsentence_name.at(rsentence_name.size() - 1) = std::towupper(rsentence_name.at(rsentence_name.size() - 1));
 
                 return rsentence_name;
             };
@@ -181,10 +181,10 @@ namespace dasmig
                 std::wstring bathtub_name = lower_case(name);
                 
                 // Transform the first character to upper case.
-                bathtub_name.at(0) = towupper(bathtub_name.at(0));
+                bathtub_name.at(0) = std::towupper(bathtub_name.at(0));
 
                 // Transform the last character to upper case.
-                bathtub_name.at(bathtub_name.size() - 1) = towupper(bathtub_name.at(bathtub_name.size() - 1));
+                bathtub_name.at(bathtub_name.size() - 1) = std::towupper(bathtub_name.at(bathtub_name.size() - 1));
 
                 return bathtub_name;
             };
@@ -200,11 +200,53 @@ namespace dasmig
                 {
                     if (!(i % 2))
                     {
-                        winding_name.at(i) = towupper(winding_name.at(i));
+                        winding_name.at(i) = std::towupper(winding_name.at(i));
                     }
                 }
 
                 return winding_name;
+            };
+                        
+            // Returns the nickname with case in a random fashion.
+            static std::wstring random_case(const std::wstring& name) 
+            { 
+                // Name in all lower case characters.
+                std::wstring random_name = lower_case(name);
+                
+                // Utilized to randomize case.
+                std::random_device random_device;
+                
+                // Distribution of possible upper or lower probability (50%).
+                std::uniform_int_distribution<std::size_t> up_low_distribution(0, 1);
+
+                // Transform every character to lower if possible.
+                std::for_each(std::begin(random_name), std::end(random_name), [&](wchar_t& character)
+                {
+                    if (up_low_distribution(random_device))
+                    {
+                        character = std::towupper(character);
+                    }
+                });
+
+                return random_name;
+            };
+                        
+            // Returns the nickname all lower case with a single random character uppercase.
+            static std::wstring random_single_case(const std::wstring& name) 
+            { 
+                // Name in all lower case characters.
+                std::wstring random_name = lower_case(name);
+                
+                // Utilized to randomize case.
+                std::random_device random_device;
+                
+                // Distribution for name characters.
+                std::uniform_int_distribution<std::size_t> character_distribution(0, random_name.size() - 1);
+
+                random_name.at(character_distribution(random_device)) = 
+                    std::towupper(random_name.at(character_distribution(random_device)));
+
+                return random_name;
             };
 
             // Format nickname utilizing one of the possible cases.
@@ -237,8 +279,8 @@ namespace dasmig
                     reverse_sentence_case, reverse_sentence_case,                                                   // nicknamE
                     bathtub_case, bathtub_case, bathtub_case,                                                       // NicknamE
                     winding_case,                                                                                   // nIcKnAmE
-                    // random_case,                                                                                    // niCKnaMe
-                    // random_single_case                                                                              // nicknaMe
+                    random_case,                                                                                    // niCKnaMe
+                    random_single_case                                                                              // nicknaMe
                 };
                 
                 // Possible choices of formatting algorithm.
