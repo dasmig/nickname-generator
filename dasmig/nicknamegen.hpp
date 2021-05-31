@@ -98,7 +98,7 @@ namespace dasmig
                     }
                 }
 
-                return *(split_name(name).cbegin());
+                return snakefied_name;
             };
                         
             // Returns the nickname in all uppercase.
@@ -243,8 +243,10 @@ namespace dasmig
                 // Distribution for name characters.
                 std::uniform_int_distribution<std::size_t> character_distribution(0, random_name.size() - 1);
 
-                random_name.at(character_distribution(random_device)) = 
-                    std::towupper(random_name.at(character_distribution(random_device)));
+                // Position of single random character to be uppercased.
+                std::size_t random_char = character_distribution(random_device);
+
+                random_name.at(random_char) = std::towupper(random_name.at(random_char));
 
                 return random_name;
             };
@@ -393,7 +395,7 @@ namespace dasmig
                 // Container with names/surnames that compose the received name.
                 auto names_list = split_name(name);
 
-                return *(names_list.crbegin()) + names_list.cbegin()->front();
+                return names_list.cbegin()->front() + *(names_list.crbegin());
             }
 
             // Reduce a random part of the name.
@@ -408,11 +410,14 @@ namespace dasmig
                 if (single_name.size() > 3)
                 {
                     // Remove all vowel characters from the name unless it's already small enough.
-                    std::remove_if(single_name.begin() + 1, single_name.end() - 1,
+                    single_name.erase(std::remove_if(
+                        single_name.begin() + 1, 
+                        single_name.end() - 1,
                         [&vowels, &single_name](const wchar_t& character)
                         { 
-                            return (vowels.find(character) && (single_name.size() > 3)); 
-                        });
+                            return ((vowels.find(character) != std::wstring::npos) && (single_name.size() > 3)); 
+                        }), 
+                        single_name.end() - 1);
                 }
                 
                 return single_name;
@@ -431,7 +436,7 @@ namespace dasmig
                 std::wstring nickname = L"";
 
                 // Proceed to generate nickname based on name.
-                if (default_distribution(random_device) == 0)
+                if (true)//(default_distribution(random_device) == 0)
                 {
                     // Possible methods utilized to generate a nickname.
                     // Purposefully adds redundancy to first and last name with any name to add double weight to them.
