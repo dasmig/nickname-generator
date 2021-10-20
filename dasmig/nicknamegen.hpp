@@ -47,6 +47,27 @@ namespace dasmig
             // We don't manage any resource, all should gracefully deallocate by itself.
             ~nng() {};
 
+
+            // Add an x to either the front or back of the nickname - or both.
+            static std::wstring xfy(const std::wstring& nickname)
+            {                
+                // Xfied nickname.
+                std::wstring x_nickname{ nickname }; 
+
+                // Utilized to randomize x position.
+                std::random_device random_device;
+                
+                // Distribution of possible xy, yx, xyx probability.
+                std::uniform_int_distribution<std::size_t> x_distribution{ 0, 2 };
+
+                switch (x_distribution(random_device))
+                {
+
+                }
+
+                return nickname;
+            }
+
             // Slightly modify the nickname to add some flavor.
             static std::wstring leetify(const std::wstring& nickname) 
             {
@@ -54,7 +75,7 @@ namespace dasmig
                 std::random_device random_device;
                 
                 // Distribution of possible leetifying probability (50%).
-                std::uniform_int_distribution<std::size_t> leetify_distribution(0, 1);
+                std::uniform_int_distribution<std::size_t> leetify_distribution{ 0, 1 };
 
                 // Leetify
                 // nickname2000
@@ -86,7 +107,7 @@ namespace dasmig
             static std::wstring snake_case(const std::wstring& name) 
             { 
                 // Name containing underscore.
-                std::wstring snakefied_name = name;
+                std::wstring snakefied_name{ name };
 
                 // Introduce an underscore if it's the begginning of a part of the nickname, except the first.
                 for (std::size_t i = 1; i < snakefied_name.size(); i++)
@@ -105,7 +126,7 @@ namespace dasmig
             static std::wstring upper_case(const std::wstring& name) 
             { 
                 // Name in all upper case characters.
-                std::wstring upper_name = name;
+                std::wstring upper_name{ name };
 
                 // Transform every character to uppercase if possible.
                 std::for_each(std::begin(upper_name), std::end(upper_name), [](wchar_t& character)
@@ -120,7 +141,7 @@ namespace dasmig
             static std::wstring lower_case(const std::wstring& name) 
             { 
                 // Name in all lower case characters.
-                std::wstring lower_name = name;
+                std::wstring lower_name{ name };
 
                 // Transform every character to lower if possible.
                 std::for_each(std::begin(lower_name), std::end(lower_name), [](wchar_t& character)
@@ -142,7 +163,7 @@ namespace dasmig
             static std::wstring sentence_case(const std::wstring& name) 
             { 
                 // Sentence case formatted nickname.
-                std::wstring sentence_name = lower_case(name);
+                std::wstring sentence_name{ lower_case(name) };
 
                 // Transform the first character to upper case.
                 sentence_name.at(0) = std::towupper(sentence_name.at(0));
@@ -154,7 +175,7 @@ namespace dasmig
             static std::wstring camel_case(const std::wstring& name) 
             { 
                 // Camel case formatted nickname.
-                std::wstring camel_name = name;
+                std::wstring camel_name{ name };
 
                 // Transform the first character to lower case.
                 camel_name.at(0) = std::towlower(camel_name.at(0));
@@ -166,7 +187,7 @@ namespace dasmig
             static std::wstring reverse_sentence_case(const std::wstring& name) 
             { 
                 // Reverse sentence case formatted nickname.
-                std::wstring rsentence_name = lower_case(name);
+                std::wstring rsentence_name{ lower_case(name) };
 
                 // Transform the last character to upper case.
                 rsentence_name.at(rsentence_name.size() - 1) = std::towupper(rsentence_name.at(rsentence_name.size() - 1));
@@ -178,7 +199,7 @@ namespace dasmig
             static std::wstring bathtub_case(const std::wstring& name) 
             { 
                 // Bathtub case formatted nickname.
-                std::wstring bathtub_name = lower_case(name);
+                std::wstring bathtub_name{ lower_case(name) };
                 
                 // Transform the first character to upper case.
                 bathtub_name.at(0) = std::towupper(bathtub_name.at(0));
@@ -193,7 +214,7 @@ namespace dasmig
             static std::wstring winding_case(const std::wstring& name) 
             { 
                 // Winding case formatted nickname.
-                std::wstring winding_name = lower_case(name);
+                std::wstring winding_name{ lower_case(name) };
 
                 // Transform to uppercase half of the letters.
                 for (std::size_t i = 0; i < winding_name.size(); i++)
@@ -211,7 +232,7 @@ namespace dasmig
             static std::wstring random_case(const std::wstring& name) 
             { 
                 // Name in all lower case characters.
-                std::wstring random_name = lower_case(name);
+                std::wstring random_name{ lower_case(name) };
                 
                 // Utilized to randomize case.
                 std::random_device random_device;
@@ -235,16 +256,16 @@ namespace dasmig
             static std::wstring random_single_case(const std::wstring& name) 
             { 
                 // Name in all lower case characters.
-                std::wstring random_name = lower_case(name);
+                std::wstring random_name{ lower_case(name) };
                 
                 // Utilized to randomize case.
                 std::random_device random_device;
                 
                 // Distribution for name characters.
-                std::uniform_int_distribution<std::size_t> character_distribution(0, random_name.size() - 1);
+                std::uniform_int_distribution<std::size_t> character_distribution{ 0, random_name.size() - 1 };
 
                 // Position of single random character to be uppercased.
-                std::size_t random_char = character_distribution(random_device);
+                std::size_t random_char{ character_distribution(random_device) };
 
                 random_name.at(random_char) = std::towupper(random_name.at(random_char));
 
@@ -258,10 +279,10 @@ namespace dasmig
                 std::random_device random_device;
                 
                 // Chance of turning into snake case.
-                std::uniform_int_distribution<std::size_t> snake_algorithm_distribution(0, 99);
+                std::uniform_int_distribution<std::size_t> snake_algorithm_distribution{ 0, 99 };
 
                 // Nickname being randomly formatted.
-                std::wstring formatted_nickname = nickname;
+                std::wstring formatted_nickname{ nickname };
 
                 // 1% chance of snake case. nick_name
                 if (!snake_algorithm_distribution(random_device))
@@ -286,7 +307,7 @@ namespace dasmig
                 };
                 
                 // Possible choices of formatting algorithm.
-                std::uniform_int_distribution<std::size_t> format_algorithm_distribution(0, possible_generators.size() - 1);
+                std::uniform_int_distribution<std::size_t> format_algorithm_distribution{ 0, possible_generators.size() - 1 };
 
                 return possible_generators.at(format_algorithm_distribution(random_device))(formatted_nickname);
             };
@@ -298,10 +319,10 @@ namespace dasmig
                 std::vector<std::wstring> splitted_name;
 
                 // String to ease the name splitting.
-                std::wstringstream full_name_stream(name);
+                std::wstringstream full_name_stream{ name };
 
                 // Single part of the full name.
-                std::wstring single_name = L"";
+                std::wstring single_name{ L"" };
 
                 while (std::getline(full_name_stream, single_name, L' '))
                 {
@@ -321,13 +342,13 @@ namespace dasmig
             static std::wstring any_name(const std::wstring& name) 
             { 
                 // Container with names/surnames that compose the received name.
-                auto names_list = split_name(name);
+                auto names_list{ split_name(name) };
 
                 // Utilized to randomize nickname content.
                 std::random_device random_device;
                 
                 // Distribution of possible names.
-                std::uniform_int_distribution<std::size_t> default_distribution(0, names_list.size() - 1);
+                std::uniform_int_distribution<std::size_t> default_distribution{ 0, names_list.size() - 1 };
 
                 return names_list.at(default_distribution(random_device)); 
             };
@@ -336,10 +357,10 @@ namespace dasmig
             static std::wstring initials(const std::wstring& name) 
             { 
                 // Generated nickname containing each name first letter.
-                std::wstring nickname(L"");
+                std::wstring nickname{ L"" };
 
                 // Container with names/surnames that compose the received name.
-                auto names_list = split_name(name);
+                auto names_list{ split_name(name) };
 
                 // Iterate through each name retrieving first letter.
                 for (const auto& name : names_list)
@@ -354,10 +375,10 @@ namespace dasmig
             static std::wstring mix_two(const std::wstring& name) 
             { 
                 // Generated nickname containing a part the last two names.
-                std::wstring nickname(L"");
+                std::wstring nickname{ L"" };
 
                 // Container with names/surnames that compose the received name.
-                auto names_list = split_name(name);
+                auto names_list{ split_name(name) };
 
                 // Reduce name list to two names.
                 while (names_list.size() > 2)
@@ -372,7 +393,7 @@ namespace dasmig
                     std::random_device random_device;
                     
                     // Distribution of possible names.
-                    std::uniform_int_distribution<std::size_t> normal_distribution(2, name.size());
+                    std::uniform_int_distribution<std::size_t> normal_distribution{ 2, name.size() };
 
                     nickname.append(name.substr(0, normal_distribution(random_device)));
                 }
@@ -384,7 +405,7 @@ namespace dasmig
             static std::wstring first_plus_initial(const std::wstring& name) 
             {
                 // Container with names/surnames that compose the received name.
-                auto names_list = split_name(name);
+                auto names_list{ split_name(name) };
 
                 return *(names_list.cbegin()) + names_list.crbegin()->front();
             }
@@ -393,7 +414,7 @@ namespace dasmig
             static std::wstring initial_plus_last(const std::wstring& name) 
             {
                 // Container with names/surnames that compose the received name.
-                auto names_list = split_name(name);
+                auto names_list{ split_name(name) };
 
                 return names_list.cbegin()->front() + *(names_list.crbegin());
             }
@@ -402,10 +423,10 @@ namespace dasmig
             static std::wstring reduce_single_name(const std::wstring& name) 
             {
                 // Random part of name.
-                std::wstring single_name = any_name(name);
+                std::wstring single_name{ any_name(name) };
                 
                 // Contains all vowel characters.
-                std::wstring vowels = L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ";
+                std::wstring vowels{ L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ" };
 
                 if (single_name.size() > 3)
                 {
@@ -430,17 +451,17 @@ namespace dasmig
                 std::random_device random_device;
                 
                 // 1/4 chance of nickname being name related.
-                std::uniform_int_distribution<std::size_t> default_distribution(0, 3);
+                std::uniform_int_distribution<std::size_t> default_distribution{ 0, 3 };
 
                 // Holds the nickname being generated.
-                std::wstring nickname = L"";
+                std::wstring nickname{ L"" };
 
                 // Proceed to generate nickname based on name.
                 if (true)//(default_distribution(random_device) == 0)
                 {
                     // Possible methods utilized to generate a nickname.
                     // Purposefully adds redundancy to first and last name with any name to add double weight to them.
-                    std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators =
+                    std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators
                     {
                         first_name,             // John
                         last_name,              // Doe
@@ -453,7 +474,7 @@ namespace dasmig
                     };
                 
                     // Possible choices of name based nickname algorithm.
-                    std::uniform_int_distribution<std::size_t> name_algorithm_distribution(0, possible_generators.size() - 1);
+                    std::uniform_int_distribution<std::size_t> name_algorithm_distribution{ 0, possible_generators.size() - 1 };
 
                     // Return a nickname from one of the name based possibilities.
                     nickname = possible_generators.at(name_algorithm_distribution(random_device))(name);
@@ -462,13 +483,13 @@ namespace dasmig
                 else
                 {
                     // Distribution of possible wordlist.  
-                    std::uniform_int_distribution<std::size_t> wordlists_range(0, _wordlists.size() - 1);
+                    std::uniform_int_distribution<std::size_t> wordlists_range{ 0, _wordlists.size() - 1 };
 
                     // Randomly select a worldist.
                     auto drawn_wordlist = _wordlists.at(wordlists_range(random_device));
 
                     // Distribution of possible words.  
-                    std::uniform_int_distribution<std::size_t> drawn_wordlist_range(0, drawn_wordlist.size() - 1);
+                    std::uniform_int_distribution<std::size_t> drawn_wordlist_range{ 0, drawn_wordlist.size() - 1 };
 
                     // Randomly selects a word from the worldist.
                     nickname = drawn_wordlist.at(drawn_wordlist_range(random_device));
@@ -481,19 +502,19 @@ namespace dasmig
             void parse_file(const std::filesystem::path& file) 
             {
                 // Expected wordlist file format is content type string, list of words.
-                std::wifstream tentative_file(file);
+                std::wifstream tentative_file{ file };
 
                 // If managed to open the file proceed.
                 if (tentative_file.is_open())
                 {
                     // Expected delimiter character.
-                    const wchar_t delimiter('\n');
+                    const wchar_t delimiter{ '\n' };
 
                     // Line being read from the file.
                     std::wstring file_line;
 
                     // List of parsed words.
-                    word_container words_read = std::vector<std::wstring>();
+                    word_container words_read{ std::vector<std::wstring>() };
 
                     // Retrieves list of words.
                     while (std::getline(tentative_file, file_line, delimiter))
