@@ -62,10 +62,21 @@ namespace dasmig
 
                 switch (x_distribution(random_device))
                 {
-
+                    case 0:
+                        x_nickname.push_back(L'X');
+                        break;
+                    case 1:
+                        x_nickname.insert(0, 1, L'X');
+                        break;
+                    case 2:
+                        x_nickname.push_back(L'X');
+                        x_nickname.insert(0, 1, L'X');
+                        break;
+                    default:
+                        break;
                 }
 
-                return nickname;
+                return x_nickname;
             }
 
             // Slightly modify the nickname to add some flavor.
@@ -77,25 +88,33 @@ namespace dasmig
                 // Distribution of possible leetifying probability (50%).
                 std::uniform_int_distribution<std::size_t> leetify_distribution{ 0, 1 };
 
-                // Leetify
-                // nickname2000
-                // 100nicknames
-                // nicknameX
-                // n1ckname
-                // n1ckn4m3
-                // nicknamee
-                // nicknaming
-                // nicknamy
-                // nikname
-                // nickname-
-                // colornickname
-                // adjectivenickname
-                // emankcin
-
-                // We have 1/2 chance of keeping leetifying after a leetification.
+                // We have 1/2 chance of leetifying.
                 if (leetify_distribution(random_device))
                 {
-                    return leetify(nickname);
+                    // Possible methods utilized to leetify the nickname.
+                    std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators
+                    {
+                        xfy,       // nicknameX
+                    };
+
+                    // Leetify
+                    // nickname2000
+                    // 100nicknames
+                    // n1ckname
+                    // n1ckn4m3
+                    // nicknamee
+                    // nicknaming
+                    // nicknamy
+                    // nikname
+                    // nickname-
+                    // colornickname
+                    // adjectivenickname
+                    // emankcin
+                    
+                    // Possible choices of leetification algorithm.
+                    std::uniform_int_distribution<std::size_t> leetify_algorithm_distribution{ 0, possible_generators.size() - 1 };
+
+                    return leetify(possible_generators.at(leetify_algorithm_distribution(random_device))(nickname));
                 }
                 else
                 {
