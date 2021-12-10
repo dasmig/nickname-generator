@@ -37,6 +37,9 @@ namespace dasmig
 
             // Default folder to look for wordlists resources. 
             static const inline std::filesystem::path _default_resources_path = "resources";
+    
+            // Contains all vowel characters.
+            static const inline std::wstring _vowels = L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ";
 
             // Vector for randomly accessing wordlists.
             std::vector<word_container> _wordlists;
@@ -79,6 +82,36 @@ namespace dasmig
                 return x_nickname;
             }
 
+            // Writes the nickname backwards such as emankcin.
+            static std::wstring reverse(const std::wstring& nickname)
+            {
+                // Original nickname reversed.
+                std::wstring reverse_nickname{ nickname };
+
+                std::reverse(std::begin(reverse_nickname), std::end(reverse_nickname));
+
+                return reverse_nickname;
+            }
+
+            // Adds an y to the end of nickname or replace the last character if it's a vowel.
+            static std::wstring yfy(const std::wstring& nickname)
+            {
+                // Nickname with an y a the end.
+                std::wstring nicknamy{ nickname };
+                
+                if (std::find(std::cbegin(_vowels), std::cend(_vowels), nickname.back()) 
+                != std::end(_vowels))
+                {
+                    nicknamy.back() = L'y';
+                }
+                else
+                {
+                    nicknamy.push_back(L'y');
+                }
+
+                return nicknamy;
+            }
+
             // Slightly modify the nickname to add some flavor.
             static std::wstring leetify(const std::wstring& nickname) 
             {
@@ -95,6 +128,8 @@ namespace dasmig
                     std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators
                     {
                         xfy,       // nicknameX
+                        reverse,   // emanckin  
+                        yfy        // nicknamy
                     };
 
                     // Leetify
@@ -104,12 +139,10 @@ namespace dasmig
                     // n1ckn4m3
                     // nicknamee
                     // nicknaming
-                    // nicknamy
                     // nikname
                     // nickname-
                     // colornickname
                     // adjectivenickname
-                    // emankcin
                     
                     // Possible choices of leetification algorithm.
                     std::uniform_int_distribution<std::size_t> leetify_algorithm_distribution{ 0, possible_generators.size() - 1 };
@@ -209,7 +242,7 @@ namespace dasmig
                 std::wstring rsentence_name{ lower_case(name) };
 
                 // Transform the last character to upper case.
-                rsentence_name.at(rsentence_name.size() - 1) = std::towupper(rsentence_name.at(rsentence_name.size() - 1));
+                rsentence_name.back() = std::towupper(rsentence_name.back());
 
                 return rsentence_name;
             };
@@ -224,7 +257,7 @@ namespace dasmig
                 bathtub_name.at(0) = std::towupper(bathtub_name.at(0));
 
                 // Transform the last character to upper case.
-                bathtub_name.at(bathtub_name.size() - 1) = std::towupper(bathtub_name.at(bathtub_name.size() - 1));
+                bathtub_name.back() = std::towupper(bathtub_name.back());
 
                 return bathtub_name;
             };
@@ -443,9 +476,6 @@ namespace dasmig
             {
                 // Random part of name.
                 std::wstring single_name{ any_name(name) };
-                
-                // Contains all vowel characters.
-                std::wstring vowels{ L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ" };
 
                 if (single_name.size() > 3)
                 {
@@ -453,9 +483,9 @@ namespace dasmig
                     single_name.erase(std::remove_if(
                         single_name.begin() + 1, 
                         single_name.end() - 1,
-                        [&vowels, &single_name](const wchar_t& character)
+                        [&_vowels, &single_name](const wchar_t& character)
                         { 
-                            return ((vowels.find(character) != std::wstring::npos) && (single_name.size() > 3)); 
+                            return ((_vowels.find(character) != std::wstring::npos) && (single_name.size() > 3)); 
                         }), 
                         single_name.end() - 1);
                 }
