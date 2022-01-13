@@ -112,6 +112,32 @@ namespace dasmig
                 return nicknamy;
             }
 
+            // Adds a number to the end of nickname.
+            static std::wstring numify(const std::wstring& nickname)
+            {
+                // Nickname with an y a the end.
+                std::wstring nickname_with_number{ nickname };
+
+                // Utilized to randomize digit added to the end of the nickname.
+                std::random_device random_device;
+                
+                // Distribution of possible digits.
+                std::uniform_int_distribution<std::size_t> leetify_distribution{ 0, 9 };
+                
+                nickname_with_number.push_back(leetify_distribution(random_device));
+
+                // Distribution of number of zeroes.
+                std::uniform_int_distribution<std::size_t> zero_distribution{ 0, 3 };
+                
+                // Append n zeroes to the end of the nickname.
+                for (std::size_t i{ 0 }; i < zero_distribution(random_device); i++)
+                {
+                    nickname_with_number.push_back('0');
+                }
+
+                return nickname_with_number;
+            }
+
             // Slightly modify the nickname to add some flavor.
             static std::wstring leetify(const std::wstring& nickname) 
             {
@@ -129,12 +155,11 @@ namespace dasmig
                     {
                         xfy,       // nicknameX
                         reverse,   // emanckin  
-                        yfy        // nicknamy
+                        yfy,       // nicknamy
+                        numify,    // nickname2000
                     };
 
                     // Leetify
-                    // nickname2000
-                    // 100nicknames
                     // n1ckname
                     // n1ckn4m3
                     // nicknamee
