@@ -138,8 +138,37 @@ namespace dasmig
                 return nickname_with_number;
             }
 
+            // Adds a trace to the end of the nickname.
+            static std::wstring tracefy(const std::wstring& nickname)
+            {
+                return nickname + L"-";
+            }
+
+            // Adds an ing to the end of nickname or replace the last character if it's a vowel.
+            static std::wstring ingify(const std::wstring& nickname)
+            {
+                // Nickname with an ing a the end.
+                std::wstring nicknaming{ nickname };
+                
+                if (std::find(std::cbegin(_vowels), std::cend(_vowels), nickname.back()) 
+                != std::end(_vowels))
+                {
+                    nicknaming.back() = L'i';
+                    nicknaming.push_back(L'n');
+                    nicknaming.push_back(L'g');
+                }
+                else
+                {
+                    nicknaming.push_back(L'i');
+                    nicknaming.push_back(L'n');
+                    nicknaming.push_back(L'g');
+                }
+
+                return nicknaming;
+            }
+
             // Slightly modify the nickname to add some flavor.
-            static std::wstring leetify(const std::wstring& nickname) 
+            static std::wstring leetify(const std::wstring& nickname, bool force = false) 
             {
                 // Utilized to randomize leetify probability content.
                 std::random_device random_device;
@@ -147,8 +176,8 @@ namespace dasmig
                 // Distribution of possible leetifying probability (50%).
                 std::uniform_int_distribution<std::size_t> leetify_distribution{ 0, 1 };
 
-                // We have 1/2 chance of leetifying.
-                if (leetify_distribution(random_device))
+                // We have 1/2 chance of leetifying, force parameter overrides this.
+                if (force || leetify_distribution(random_device))
                 {
                     // Possible methods utilized to leetify the nickname.
                     std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators
@@ -157,22 +186,24 @@ namespace dasmig
                         reverse,   // emanckin  
                         yfy,       // nicknamy
                         numify,    // nickname2000
+                        tracefy,   // nickname-
+                        ingify    // nicknaming
                     };
 
                     // Leetify
                     // n1ckname
                     // n1ckn4m3
                     // nicknamee
-                    // nicknaming
                     // nikname
-                    // nickname-
-                    // colornickname
-                    // adjectivenickname
                     
                     // Possible choices of leetification algorithm.
                     std::uniform_int_distribution<std::size_t> leetify_algorithm_distribution{ 0, possible_generators.size() - 1 };
 
-                    return leetify(possible_generators.at(leetify_algorithm_distribution(random_device))(nickname));
+                    // New leetified nickname.
+                    std::wstring new_nickname = possible_generators.at(leetify_algorithm_distribution(random_device))(nickname);
+
+                    // If the new nickname didn't suffer any alteration, force leetify again.
+                    return leetify(new_nickname, nickname == new_nickname);
                 }
                 else
                 {
