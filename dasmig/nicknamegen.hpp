@@ -100,7 +100,7 @@ namespace dasmig
                 std::wstring nicknamy{ nickname };
                 
                 if (std::find(std::cbegin(_vowels), std::cend(_vowels), nickname.back()) 
-                != std::end(_vowels))
+                    != std::end(_vowels))
                 {
                     nicknamy.back() = L'y';
                 }
@@ -151,7 +151,7 @@ namespace dasmig
                 std::wstring nicknaming{ nickname };
                 
                 if (std::find(std::cbegin(_vowels), std::cend(_vowels), nickname.back()) 
-                != std::end(_vowels))
+                    != std::end(_vowels))
                 {
                     nicknaming.back() = L'i';
                     nicknaming.push_back(L'n');
@@ -165,6 +165,31 @@ namespace dasmig
                 }
 
                 return nicknaming;
+            }
+
+            // Finds an aeio vowel and duplicates it, returns same nickname if no available vowel.
+            static std::wstring duovowel(const std::wstring& nickname)
+            {
+                static const std::wstring simple_vowels = L"aeio";
+
+                // Nickname with duplicated vowel.
+                std::wstring nicknamee{ nickname };
+
+                // Try duplicating each vowel in the nickname, stop after succeeding once.
+                for (const auto& vowel : simple_vowels)
+                {
+                    // Iterator pointing to vowel finded in the nickname.
+                    const auto vowel_iterator = std::find(
+                        std::cbegin(nicknamee), std::cend(nicknamee), vowel);
+                
+                    if (vowel_iterator != std::cend(nicknamee))
+                    {
+                        nicknamee.insert(vowel_iterator, *vowel_iterator);
+                        break;
+                    }
+                }
+
+                return nicknamee;
             }
 
             // Slightly modify the nickname to add some flavor.
@@ -187,13 +212,13 @@ namespace dasmig
                         yfy,       // nicknamy
                         numify,    // nickname2000
                         tracefy,   // nickname-
-                        ingify    // nicknaming
+                        ingify,    // nicknaming
+                        duovowel,  // nicknamee
                     };
 
                     // Leetify
                     // n1ckname
                     // n1ckn4m3
-                    // nicknamee
                     // nikname
                     
                     // Possible choices of leetification algorithm.
