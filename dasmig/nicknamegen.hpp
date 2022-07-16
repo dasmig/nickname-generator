@@ -1,5 +1,6 @@
 #include <string>
 #include <vector>
+#include <list>
 #include <iostream>
 #include <map>
 #include <memory>
@@ -36,10 +37,32 @@ namespace dasmig
             typedef std::vector<std::wstring> word_container;
 
             // Default folder to look for wordlists resources. 
-            static const inline std::filesystem::path _default_resources_path = "resources";
+            static const inline std::filesystem::path _default_resources_path{ "resources" };
     
             // Contains all vowel characters.
-            static const inline std::wstring _vowels = L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ";
+            static const inline std::wstring _vowels{ L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ" };
+            
+            // Contains all vowel characters.
+            static const inline std::map<wchar_t, wchar_t> _leet_map{
+                { L'o', L'0' },
+                { L'O', L'0' },
+                { L'i', L'1' },
+                { L'I', L'1' },
+                { L's', L'2' },
+                { L'S', L'2' },
+                { L'e', L'3' },
+                { L'E', L'3' },
+                { L'a', L'4' },
+                { L'A', L'4' },
+                { L'g', L'6' },
+                { L'G', L'6' },
+                { L't', L'7' },
+                { L'T', L'7' },
+                { L'b', L'8' },
+                { L'B', L'8' },
+                { L'q', L'9' },
+                { L'Q', L'9' }
+            };
 
             // Vector for randomly accessing wordlists.
             std::vector<word_container> _wordlists;
@@ -192,6 +215,45 @@ namespace dasmig
                 return nicknamee;
             }
 
+            // Replaces a letter by a numerical character.
+            static std::wstring oneleet(const std::wstring& nickname)
+            {
+                // Nickname with leetified letter.
+                std::wstring leet_nickname{ nickname };
+ 
+                // Candidates letter to be leetified.
+                std::list<wchar_t> candidates{};
+
+                // Retrieve candidates for replacement.
+                for (auto& character : leet_nickname)
+                {
+                    if (_leet_map.count(character))
+                    { 
+                        candidates.push_back(character);
+                    }
+                }
+
+                return leet_nickname;
+            }
+
+            // Replaces as much letters as possible in the nickname by numerical characters.
+            static std::wstring allleet(const std::wstring& nickname)
+            {
+                // Nickname leetified.
+                std::wstring leet_nickname{ nickname };
+
+                // Replace all possible characters.
+                for (auto& character : leet_nickname)
+                {
+                    if (_leet_map.count(character))
+                    { 
+                        character = _leet_map.at(character);
+                    }
+                }
+
+                return leet_nickname;
+            }
+
             // Slightly modify the nickname to add some flavor.
             static std::wstring leetify(const std::wstring& nickname, bool force = false) 
             {
@@ -207,19 +269,16 @@ namespace dasmig
                     // Possible methods utilized to leetify the nickname.
                     std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators
                     {
-                        xfy,       // nicknameX
-                        reverse,   // emanckin  
-                        yfy,       // nicknamy
-                        numify,    // nickname2000
-                        tracefy,   // nickname-
-                        ingify,    // nicknaming
-                        duovowel,  // nicknamee
+                        xfy,        // nicknameX
+                        reverse,    // emanckin  
+                        yfy,        // nicknamy
+                        numify,     // nickname2000
+                        tracefy,    // nickname-
+                        ingify,     // nicknaming
+                        duovowel,   // nicknamee
+                        oneleet,    // n1ckname
+                        allleet    // n1ckn4m3
                     };
-
-                    // Leetify
-                    // n1ckname
-                    // n1ckn4m3
-                    // nikname
                     
                     // Possible choices of leetification algorithm.
                     std::uniform_int_distribution<std::size_t> leetify_algorithm_distribution{ 0, possible_generators.size() - 1 };
