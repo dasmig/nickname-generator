@@ -145,7 +145,7 @@ namespace dasmig
                 std::random_device random_device;
                 
                 // Distribution of possible digits.
-                std::uniform_int_distribution<std::size_t> leetify_distribution{ 0, 9 };
+                std::uniform_int_distribution<std::size_t> leetify_distribution{ '1', '9' };
                 
                 nickname_with_number.push_back(leetify_distribution(random_device));
 
@@ -266,28 +266,46 @@ namespace dasmig
                 // We have 1/2 chance of leetifying, force parameter overrides this.
                 if (force || leetify_distribution(random_device))
                 {
-                    // Possible methods utilized to leetify the nickname.
-                    std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators
+                    // When leetifying, there's 1/2 chance of using a finalizer or a random leetifier.
+                    if (leetify_distribution(random_device))
                     {
-                        xfy,        // nicknameX
-                        reverse,    // emanckin  
-                        yfy,        // nicknamy
-                        numify,     // nickname2000
-                        tracefy,    // nickname-
-                        ingify,     // nicknaming
-                        duovowel,   // nicknamee
-                        oneleet,    // n1ckname
-                        allleet    // n1ckn4m3
-                    };
-                    
-                    // Possible choices of leetification algorithm.
-                    std::uniform_int_distribution<std::size_t> leetify_algorithm_distribution{ 0, possible_generators.size() - 1 };
+                        // Possible methods utilized to leetify the nickname.
+                        std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators
+                        {
+                            reverse,    // emanckin
+                            duovowel,   // nicknamee
+                            oneleet,    // n1ckname
+                            allleet    // n1ckn4m3
+                        };
+                        
+                        // Possible choices of leetification algorithm.
+                        std::uniform_int_distribution<std::size_t> leetify_algorithm_distribution{ 0, possible_generators.size() - 1 };
 
-                    // New leetified nickname.
-                    std::wstring new_nickname = possible_generators.at(leetify_algorithm_distribution(random_device))(nickname);
+                        // New leetified nickname.
+                        std::wstring new_nickname = possible_generators.at(leetify_algorithm_distribution(random_device))(nickname);
 
-                    // If the new nickname didn't suffer any alteration, force leetify again.
-                    return leetify(new_nickname, nickname == new_nickname);
+                        // If the new nickname didn't suffer any alteration, force leetify again.
+                        return leetify(new_nickname, nickname == new_nickname);
+                    }
+                    else
+                    {
+                        // Possible methods utilized to leetify the nickname.
+                        std::vector<std::function<std::wstring(const std::wstring&)>> possible_generators
+                        {
+                            xfy,        // nicknameX
+                            reverse,    // emanckin  
+                            yfy,        // nicknamy
+                            numify,     // nickname2000
+                            tracefy,    // nickname-
+                            ingify,     // nicknaming
+                        };
+
+                        // Possible choices of leetification algorithm.
+                        std::uniform_int_distribution<std::size_t> leetify_algorithm_distribution{ 0, possible_generators.size() - 1 };
+
+                        // New leetified nickname.
+                        return possible_generators.at(leetify_algorithm_distribution(random_device))(nickname);
+                    }
                 }
                 else
                 {
