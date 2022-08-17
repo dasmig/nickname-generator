@@ -37,7 +37,7 @@ namespace dasmig
             typedef std::vector<std::wstring> word_container;
 
             // Default folder to look for wordlists resources. 
-            static const inline std::filesystem::path _default_resources_path{ "resources" };
+            static const inline std::filesystem::path _default_resources_path{ ".\\resources" };
     
             // Contains all vowel characters.
             static const inline std::wstring _vowels{ L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ" };
@@ -664,7 +664,7 @@ namespace dasmig
                 std::wstring nickname{ L"" };
 
                 // Proceed to generate nickname based on name.
-                if (true)//(default_distribution(random_device) == 0)
+                if (default_distribution(random_device) == 0)
                 {
                     // Possible methods utilized to generate a nickname.
                     // Purposefully adds redundancy to first and last name with any name to add double weight to them.
