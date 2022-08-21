@@ -15,8 +15,10 @@ The library currently supports the following:
 
 - **'Leetifying' Process**. After selecting a name/word it will randomly apply any number of customizations to uniquefy the nickname.
 
-- **Word Lists Supported**. Currently the following word lists are supported and a matching database is packed together with the library: 
-  - None
+- **Word Lists Supported**. Currently the following word lists are supported and a matching database is packed together with the library:
+  - Adjectives 
+  - Animals
+  - Japanese
 
 
 ## Integration
@@ -32,7 +34,29 @@ using nng = dasmig::nng;
 
 to the files you want to generate nicknames and set the necessary switches to enable C++17 (e.g., `-std=c++17` for GCC and Clang).
 
-Additionally you must supply the nickname generator with the [`resources`](https://github.com/dasmig/name-generator/tree/master/resources) folder also available in the [release](https://github.com/dasmig/name-generator/releases).
+Additionally you must supply the nickname generator with the [`resources`](https://github.com/dasmig/nickname-generator/tree/master/resources) folder also available in the [release](https://github.com/dasmig/nickname-generator/releases).
+
+
+## Usage
+
+It's important to note that due to the necessity of supporting multiple cultures characters and the way std::string works on windows, this library uses std::wstring to return the generated nicknames.
+
+When requesting a nickname for the first time the library will attempt to load the resource files containing each word list (the default path is ./resources). It's important to manually load the resources folder if it's present in a different location. The library will recursively iterate through all entries in the loading directory, so only a single call to the root folder containing the word lists is necessary.
+
+```cpp
+#include <dasmig/nicknamegen.hpp>
+
+// For convenience.
+using nng = dasmig::nng;
+
+// Manually load the resources folder if necessary.
+nng::instance().load("path//containing//words");
+
+std::wstring github_nickname = nng::instance().get_nickname(L"Kind Github User");
+
+std::wstring random_nickname = nng::instance().get_nickname();
+
+```
 
 ### Disclaimer
 
