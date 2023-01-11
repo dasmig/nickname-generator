@@ -1,3 +1,5 @@
+#include "random.hpp"
+#include <atomic>
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
@@ -6,14 +8,62 @@
 #include <list>
 #include <map>
 #include <memory>
-#include <random>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <variant>
 #include <vector>
 
 // Written by Diego Dasso Migotto - diegomigotto at hotmail dot com
 namespace dasmig
 {
+
+// Internal class used by nickname generator to allow for chained calls when
+// building a nickname.
+class nickname
+{
+  public:
+    // Return original word used as source for the nickname, or name that
+    // originated it.
+    [[nodiscard]] std::wstring plain() const
+    {
+        return _original_string;
+    }
+
+    // Operator wstring to allow for implicit conversion to string.
+    operator std::wstring() const // NOLINT(hicpp-explicit-conversions)
+    {
+        return _internal_string;
+    }
+
+    // Operator ostream streaming internal string.
+    friend std::wostream& operator<<(std::wostream& wos,
+                                     const nickname& nickname)
+    {
+        wos << nickname._internal_string;
+        return wos;
+    }
+
+  private:
+    // Private constructor, this is mostly a helper class to the nickname
+    // generator, not the intended API.
+    nickname(std::wstring nickname_str, std::wstring original_str)
+        : _internal_string(std::move(nickname_str)),
+          _original_string(std::move(original_str))
+    {
+    }
+
+    // Current nickname after all modifications/formatting.
+    std::wstring _internal_string;
+
+    // Original string used to generated the nickname.
+    std::wstring _original_string;
+
+    // Allows nickname generator to construct nicknames.
+    friend class nng;
+};
+
 // The nickname generator generates as realistic as possible gamers nicknames
 // akin to professional players, allowing requests specifying the player name.
 class nng
@@ -34,8 +84,7 @@ class nng
     }
 
     // Generates a nickname based on requested name(optional).
-    [[nodiscard]] std::wstring get_nickname(
-        const std::wstring& name = L"") const
+    [[nodiscard]] nickname get_nickname(const std::wstring& name = L"") const
     {
         return solver(name);
     };
@@ -60,8 +109,12 @@ class nng
     }
 
   private:
-    // Typedef to avoid type horror when defining a container of names.
+    // Container of words.
     using word_container = std::vector<std::wstring>;
+
+    // Container of methods used to modify the nickname.
+    using generators =
+        std::vector<std::function<std::wstring(const std::wstring&)>>;
 
     // Default folder to look for wordlists resources.
     static const inline std::filesystem::path _default_resources_path{
@@ -96,13 +149,8 @@ class nng
         // Xfied nickname.
         std::wstring x_nickname{nickname};
 
-        // Utilized to randomize x position.
-        std::random_device random_device;
-
         // Distribution of possible xy, yx, xyx probability.
-        std::uniform_int_distribution<std::size_t> x_distribution{0, 2};
-
-        switch (x_distribution(random_device))
+        switch (effolkronium::random_thread_local::get(0, 2))
         {
         case 0:
             x_nickname.push_back(L'X');
@@ -159,19 +207,12 @@ class nng
         std::wstring nickname_with_number{nickname};
 
         // Utilized to randomize digit added to the end of the nickname.
-        std::random_device random_device;
-
-        // Distribution of possible digits.
-        std::uniform_int_distribution<std::size_t> leetify_distribution{'1',
-                                                                        '9'};
-
-        nickname_with_number.push_back(leetify_distribution(random_device));
-
-        // Distribution of number of zeroes.
-        std::uniform_int_distribution<std::size_t> zero_distribution{0, 3};
+        nickname_with_number.push_back(
+            effolkronium::random_thread_local::get(1, 9));
 
         // Append n zeroes to the end of the nickname.
-        for (std::size_t i{0}; i < zero_distribution(random_device); i++)
+        for (std::size_t i{0}; i < effolkronium::random_thread_local::get(0, 3);
+             i++)
         {
             nickname_with_number.push_back('0');
         }
@@ -277,64 +318,49 @@ class nng
     }
 
     // Slightly modify the nickname to add some flavor.
-    static std::wstring leetify(const std::wstring& nickname,
-                                bool force = false)
+    // NOLINTNEXTLINE(misc-no-recursion)
+    static nickname leetify(nickname nickname, bool force = false)
     {
-        // Utilized to randomize leetify probability content.
-        std::random_device random_device;
-
-        // Distribution of possible leetifying probability (50%).
-        std::uniform_int_distribution<std::size_t> leetify_distribution{0, 1};
-
         // We have 1/2 chance of leetifying, force parameter overrides this.
-        if (force || leetify_distribution(random_device))
+        if (force || effolkronium::random_thread_local::get<bool>())
         {
             // When leetifying, there's 1/2 chance of using a finalizer or a
             // random leetifier.
-            if (leetify_distribution(random_device))
+            if (effolkronium::random_thread_local::get<bool>())
             {
                 // Possible methods utilized to leetify the nickname.
-                std::vector<std::function<std::wstring(const std::wstring&)>>
-                    possible_generators{
-                        reverse,  // emanckin
-                        duovowel, // nicknamee
-                        oneleet,  // n1ckname
-                        allleet   // n1ckn4m3
-                    };
-
-                // Possible choices of leetification algorithm.
-                std::uniform_int_distribution<std::size_t>
-                    leetify_algorithm_distribution{
-                        0, possible_generators.size() - 1};
+                static const generators possible_generators{
+                    reverse,  // emanckin
+                    duovowel, // nicknamee
+                    oneleet,  // n1ckname
+                    allleet   // n1ckn4m3
+                };
 
                 // New leetified nickname.
-                std::wstring new_nickname = possible_generators.at(
-                    leetify_algorithm_distribution(random_device))(nickname);
+                nickname._internal_string =
+                    (*effolkronium::random_thread_local::get(
+                        possible_generators))(nickname);
 
                 // If the new nickname didn't suffer any alteration, force
                 // leetify again.
-                return leetify(new_nickname, nickname == new_nickname);
+                return leetify(nickname, nickname._internal_string ==
+                                             nickname._original_string);
             }
 
             // Possible methods utilized to leetify the nickname.
-            std::vector<std::function<std::wstring(const std::wstring&)>>
-                possible_generators{
-                    xfy,     // nicknameX
-                    reverse, // emanckin
-                    yfy,     // nicknamy
-                    numify,  // nickname2000
-                    tracefy, // nickname-
-                    ingify,  // nicknaming
-                };
-
-            // Possible choices of leetification algorithm.
-            std::uniform_int_distribution<std::size_t>
-                leetify_algorithm_distribution{0,
-                                               possible_generators.size() - 1};
+            static const generators possible_generators{
+                xfy,     // nicknameX
+                reverse, // emanckin
+                yfy,     // nicknamy
+                numify,  // nickname2000
+                tracefy, // nickname-
+                ingify,  // nicknaming
+            };
 
             // New leetified nickname.
-            return possible_generators.at(
-                leetify_algorithm_distribution(random_device))(nickname);
+            nickname._internal_string =
+                (*effolkronium::random_thread_local::get(possible_generators))(
+                    nickname);
         }
 
         return nickname;
@@ -350,7 +376,7 @@ class nng
         // nickname, except the first.
         for (std::size_t i = 1; i < snakefied_name.size(); i++)
         {
-            if (iswupper(snakefied_name.at(i)))
+            if (iswupper(snakefied_name.at(i)) != 0)
             {
                 snakefied_name.insert(i, L"_");
                 i++;
@@ -455,7 +481,7 @@ class nng
         // Transform to uppercase half of the letters.
         for (std::size_t i = 0; i < winding_name.size(); i++)
         {
-            if (!(i % 2))
+            if ((i % 2) == 0)
             {
                 winding_name.at(i) = std::towupper(winding_name.at(i));
             }
@@ -470,16 +496,10 @@ class nng
         // Name in all lower case characters.
         std::wstring random_name{lower_case(name)};
 
-        // Utilized to randomize case.
-        std::random_device random_device;
-
-        // Distribution of possible upper or lower probability (50%).
-        std::uniform_int_distribution<std::size_t> up_low_distribution(0, 1);
-
         // Transform every character to lower if possible.
         std::for_each(std::begin(random_name), std::end(random_name),
                       [&](wchar_t& character) {
-                          if (up_low_distribution(random_device))
+                          if (effolkronium::random_thread_local::get<bool>())
                           {
                               character = std::towupper(character);
                           }
@@ -495,82 +515,61 @@ class nng
         // Name in all lower case characters.
         std::wstring random_name{lower_case(name)};
 
-        // Utilized to randomize case.
-        std::random_device random_device;
-
-        // Distribution for name characters.
-        std::uniform_int_distribution<std::size_t> character_distribution{
-            0, random_name.size() - 1};
-
         // Position of single random character to be uppercased.
-        std::size_t random_char{character_distribution(random_device)};
+        auto random_char{effolkronium::random_thread_local::get(random_name)};
 
-        random_name.at(random_char) =
-            std::towupper(random_name.at(random_char));
+        *random_char = std::towupper(*random_char);
 
         return random_name;
     };
 
     // Format nickname utilizing one of the possible cases.
-    static std::wstring format(const std::wstring& nickname)
+    static nickname format(nickname nickname)
     {
-        // Utilized to randomize leetify probability content.
-        std::random_device random_device;
-
-        // Chance of turning into snake case.
-        std::uniform_int_distribution<std::size_t> snake_algorithm_distribution{
-            0, 99};
-
-        // Nickname being randomly formatted.
-        std::wstring formatted_nickname{nickname};
-
         // 1% chance of snake case. nick_name
-        if (!snake_algorithm_distribution(random_device))
+        if (effolkronium::random_thread_local::get<bool>(0.01))
         {
-            formatted_nickname = snake_case(formatted_nickname);
+            nickname._internal_string = snake_case(nickname);
         }
 
         // Possible methods utilized to format the nickname.
         // Repeat functions to enforce a distribution.
-        std::vector<std::function<std::wstring(const std::wstring&)>>
-            possible_generators = {
-                upper_case,
-                upper_case,
-                upper_case,
-                upper_case, // NICKNAME
-                lower_case,
-                lower_case,
-                lower_case,
-                lower_case,
-                lower_case,
-                lower_case,
-                lower_case,
-                lower_case, // nickname
-                title_case,
-                title_case, // NickName
-                sentence_case,
-                sentence_case,
-                sentence_case,
-                sentence_case,
-                sentence_case, // Nickname
-                camel_case,
-                camel_case, // nickName
-                reverse_sentence_case,
-                reverse_sentence_case, // nicknamE
-                bathtub_case,
-                bathtub_case,
-                bathtub_case,      // NicknamE
-                winding_case,      // nIcKnAmE
-                random_case,       // niCKnaMe
-                random_single_case // nicknaMe
-            };
+        static const generators possible_generators = {
+            upper_case,
+            upper_case,
+            upper_case,
+            upper_case, // NICKNAME
+            lower_case,
+            lower_case,
+            lower_case,
+            lower_case,
+            lower_case,
+            lower_case,
+            lower_case,
+            lower_case, // nickname
+            title_case,
+            title_case, // NickName
+            sentence_case,
+            sentence_case,
+            sentence_case,
+            sentence_case,
+            sentence_case, // Nickname
+            camel_case,
+            camel_case, // nickName
+            reverse_sentence_case,
+            reverse_sentence_case, // nicknamE
+            bathtub_case,
+            bathtub_case,
+            bathtub_case,      // NicknamE
+            winding_case,      // nIcKnAmE
+            random_case,       // niCKnaMe
+            random_single_case // nicknaMe
+        };
 
-        // Possible choices of formatting algorithm.
-        std::uniform_int_distribution<std::size_t>
-            format_algorithm_distribution{0, possible_generators.size() - 1};
+        nickname._internal_string = (*effolkronium::random_thread_local::get(
+            possible_generators))(nickname);
 
-        return possible_generators.at(
-            format_algorithm_distribution(random_device))(formatted_nickname);
+        return nickname;
     };
 
     // Split a full name into a vector containing each name/surname.
@@ -609,16 +608,9 @@ class nng
     static std::wstring any_name(const std::wstring& name)
     {
         // Container with names/surnames that compose the received name.
-        auto names_list{split_name(name)};
+        std::vector<std::wstring> names_list{split_name(name)};
 
-        // Utilized to randomize nickname content.
-        std::random_device random_device;
-
-        // Distribution of possible names.
-        std::uniform_int_distribution<std::size_t> default_distribution{
-            0, names_list.size() - 1};
-
-        return names_list.at(default_distribution(random_device));
+        return *effolkronium::random_thread_local::get(names_list);
     };
 
     // Returns only the name initials.
@@ -628,7 +620,7 @@ class nng
         std::wstring nickname;
 
         // Container with names/surnames that compose the received name.
-        auto names_list{split_name(name)};
+        std::vector<std::wstring> names_list{split_name(name)};
 
         // Iterate through each name retrieving first letter.
         for (const auto& name : names_list)
@@ -657,14 +649,9 @@ class nng
         // Iterate through each name retrieving random number of letters.
         for (const auto& name : names_list)
         {
-            // Utilized to randomize nickname content.
-            std::random_device random_device;
-
-            // Distribution of possible names.
-            std::uniform_int_distribution<std::size_t> normal_distribution{
-                2, name.size()};
-
-            nickname.append(name.substr(0, normal_distribution(random_device)));
+            nickname.append(name.substr(
+                0, effolkronium::random_thread_local::get<std::size_t>(
+                       2, name.size())));
         }
 
         return nickname;
@@ -674,7 +661,7 @@ class nng
     static std::wstring first_plus_initial(const std::wstring& name)
     {
         // Container with names/surnames that compose the received name.
-        auto names_list{split_name(name)};
+        std::vector<std::wstring> names_list{split_name(name)};
 
         return *(names_list.cbegin()) + names_list.crbegin()->front();
     }
@@ -713,62 +700,59 @@ class nng
 
     // Contains logic to generate a random nickname optionally based on the
     // player full name.
-    [[nodiscard]] std::wstring solver(const std::wstring& name) const
+    [[nodiscard]] nickname solver(const std::wstring& name) const
     {
-        // Utilized to randomize nickname content.
-        std::random_device random_device;
+        // Holds the original word used to generate the nickname.
+        std::wstring original;
+
+        // Holds the modified version.
+        std::wstring nick;
 
         // 1/4 chance of nickname being name related.
-        std::uniform_int_distribution<std::size_t> default_distribution{0, 3};
-
-        // Holds the nickname being generated.
-        std::wstring nickname;
+        const std::double_t name_related_probability{0.25};
 
         // Proceed to generate nickname based on name.
-        if (_wordlists.empty() || default_distribution(random_device) == 0)
+        if (!name.empty() && effolkronium::random_thread_local::get<bool>(
+                                 name_related_probability))
         {
             // Possible methods utilized to generate a nickname.
             // Purposefully adds redundancy to first and last name with any name
             // to add double weight to them.
-            std::vector<std::function<std::wstring(const std::wstring&)>>
-                possible_generators{
-                    first_name,         // John
-                    last_name,          // Doe
-                    any_name,           // Smith
-                    initials,           // JSD
-                    mix_two,            // DoSmi
-                    initial_plus_last,  // JSmith
-                    first_plus_initial, // JohnS
-                    reduce_single_name  // Jhn
-                };
+            static const generators possible_generators{
+                first_name,         // John
+                last_name,          // Doe
+                any_name,           // Smith
+                initials,           // JSD
+                mix_two,            // DoSmi
+                initial_plus_last,  // JSmith
+                first_plus_initial, // JohnS
+                reduce_single_name  // Jhn
+            };
 
-            // Possible choices of name based nickname algorithm.
-            std::uniform_int_distribution<std::size_t>
-                name_algorithm_distribution{0, possible_generators.size() - 1};
+            original = name;
 
             // Return a nickname from one of the name based possibilities.
-            nickname = possible_generators.at(
-                name_algorithm_distribution(random_device))(name);
+            nick = (*effolkronium::random_thread_local::get(
+                possible_generators))(name);
         }
         // Proceed to generate nickname based on a word list.
-        else
+        else if (!_wordlists.empty())
         {
-            // Distribution of possible wordlist.
-            std::uniform_int_distribution<std::size_t> wordlists_range{
-                0, _wordlists.size() - 1};
-
             // Randomly select a worldist.
-            auto drawn_wordlist = _wordlists.at(wordlists_range(random_device));
-
-            // Distribution of possible words.
-            std::uniform_int_distribution<std::size_t> drawn_wordlist_range{
-                0, drawn_wordlist.size() - 1};
+            word_container drawn_wordlist =
+                *effolkronium::random_thread_local::get(_wordlists);
 
             // Randomly selects a word from the wordlist.
-            nickname = drawn_wordlist.at(drawn_wordlist_range(random_device));
+            nick = original =
+                *effolkronium::random_thread_local::get(drawn_wordlist);
+        }
+        else
+        {
+            throw(std::invalid_argument(
+                "Received no name and word lists are empty"));
         }
 
-        return format(leetify(nickname));
+        return format(leetify({nick, original}));
     };
 
     // Try parsing the wordlist file and index it into our container.
