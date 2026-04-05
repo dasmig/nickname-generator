@@ -13,6 +13,7 @@ This guide covers every feature of the nickname-generator library in detail. For
 <li><a href="#nickname-transforms">Nickname Transforms</a></li>
 <li><a href="#word-lists">Word Lists</a></li>
 <li><a href="#thread-safety">Thread Safety</a></li>
+<li><a href="#seeding-and-deterministic-generation">Seeding and Deterministic Generation</a></li>
 <li><a href="#error-reference">Error Reference</a></li>
 </ul>
 
@@ -146,6 +147,70 @@ directory. Each file should contain one word per line.
 | `load()` | **No** — must not be called concurrently with `get_nickname()` |
 
 Call `load()` once during initialization before spawning threads.
+
+## Seeding and Deterministic Generation
+
+### Per-call seeding
+
+Pass an explicit seed to `get_nickname()` to produce the same nickname every time:
+
+```cpp
+auto nick = dasmig::nng::instance().get_nickname(L"John Smith", 42);
+// Always produces the same result for the same name + seed.
+```
+
+### Seed replay
+
+Every nickname records its seed. Retrieve it with `nickname::seed()` and pass
+it back to reproduce the exact same result:
+
+```cpp
+auto nick = dasmig::nng::instance().get_nickname(L"Jane Doe");
+auto saved_seed = nick.seed();
+
+// Later, replay:
+auto replay = dasmig::nng::instance().get_nickname(L"Jane Doe", saved_seed);
+// replay == nick
+```
+
+### Sequence seeding
+
+Seed the generator's thread-local engine for a reproducible sequence of
+nicknames:
+
+```cpp
+auto& gen = dasmig::nng::instance();
+
+gen.seed(100);
+auto a = gen.get_nickname(L"Alice");
+auto b = gen.get_nickname(L"Bob");
+
+gen.seed(100);                      // reset
+auto a2 = gen.get_nickname(L"Alice"); // identical to a
+auto b2 = gen.get_nickname(L"Bob");   // identical to b
+
+gen.unseed(); // restore non-deterministic behavior
+```
+
+`seed()` and `unseed()` return `*this` for chaining:
+
+```cpp
+gen.seed(42).get_nickname(L"Test");
+```
+
+> **Note:** `seed()` / `unseed()` are thread-local — they only affect the
+> calling thread.
+
+### Checking resources
+
+Use `has_wordlists()` before generating to verify resources loaded:
+
+```cpp
+if (!dasmig::nng::instance().has_wordlists())
+{
+    dasmig::nng::instance().load("/path/to/resources");
+}
+```
 
 ## Error Reference
 

@@ -184,6 +184,13 @@ class nng
 
     /// @}
 
+    /// @brief Check whether any word lists have been loaded.
+    /// @return `true` if at least one word list is available.
+    [[nodiscard]] bool has_wordlists() const
+    {
+        return !_wordlists.empty();
+    }
+
     /// @brief Load word list files from a directory.
     ///
     /// Recursively scans @p resource_path for `.words` files and indexes them.
@@ -248,7 +255,7 @@ class nng
                 break;
             }
         }
-    };
+    }
 
     // We don't manage any resource, all should gracefully deallocate by itself.
     ~nng() = default;
@@ -497,7 +504,7 @@ class nng
         }
 
         return nickname;
-    };
+    }
 
     // Returns the nickname with an underscore separating its original parts.
     static std::wstring snake_case(const std::wstring& name)
@@ -515,7 +522,7 @@ class nng
         }
 
         return result;
-    };
+    }
 
     // Returns the nickname in all uppercase.
     static std::wstring upper_case(
@@ -531,7 +538,7 @@ class nng
             [](wchar_t& character) { character = std::towupper(character); });
 
         return upper_name;
-    };
+    }
 
     // Returns the nickname in all lowercase.
     static std::wstring lower_case(
@@ -547,7 +554,7 @@ class nng
             [](wchar_t& character) { character = std::towlower(character); });
 
         return lower_name;
-    };
+    }
 
     // Returns the nickname in title case.
     static std::wstring title_case(
@@ -556,7 +563,7 @@ class nng
     {
         // Well, titlecase is actually the default.
         return name;
-    };
+    }
 
     // Returns the nickname in sentence case.
     static std::wstring sentence_case(const std::wstring& name,
@@ -574,7 +581,7 @@ class nng
         sentence_name.at(0) = std::towupper(sentence_name.at(0));
 
         return sentence_name;
-    };
+    }
 
     // Returns the nickname in camel case.
     static std::wstring camel_case(
@@ -593,7 +600,7 @@ class nng
         camel_name.at(0) = std::towlower(camel_name.at(0));
 
         return camel_name;
-    };
+    }
 
     // Returns the nickname in reverse sentence case.
     static std::wstring reverse_sentence_case(const std::wstring& name,
@@ -611,7 +618,7 @@ class nng
         rsentence_name.back() = std::towupper(rsentence_name.back());
 
         return rsentence_name;
-    };
+    }
 
     // Returns the nickname in bathtub case.
     static std::wstring bathtub_case(const std::wstring& name,
@@ -632,7 +639,7 @@ class nng
         bathtub_name.back() = std::towupper(bathtub_name.back());
 
         return bathtub_name;
-    };
+    }
 
     // Returns the nickname in winding case.
     static std::wstring winding_case(const std::wstring& name,
@@ -651,7 +658,7 @@ class nng
         }
 
         return winding_name;
-    };
+    }
 
     // Returns the nickname with case in a random fashion.
     static std::wstring random_case(const std::wstring& name,
@@ -669,7 +676,7 @@ class nng
         });
 
         return random_name;
-    };
+    }
 
     // Returns the nickname all lower case with a single random character
     // uppercase.
@@ -685,7 +692,7 @@ class nng
         *random_char = std::towupper(*random_char);
 
         return random_name;
-    };
+    }
 
     // Format nickname utilizing one of the possible cases.
     static nickname format(nickname nickname,
@@ -738,10 +745,11 @@ class nng
             possible_generators))(nickname, engine);
 
         return nickname;
-    };
+    }
 
     // Split a full name into a vector containing each name/surname.
-    static std::vector<std::wstring> split_name(const std::wstring& name)
+    [[nodiscard]] static std::vector<std::wstring> split_name(
+        const std::wstring& name)
     {
         std::vector<std::wstring> parts;
 
@@ -752,7 +760,7 @@ class nng
         }
 
         return parts;
-    };
+    }
 
     // Returns the first name.
     static std::wstring first_name(
@@ -760,7 +768,7 @@ class nng
         [[maybe_unused]] effolkronium::random_local& engine)
     {
         return *(split_name(name).cbegin());
-    };
+    }
 
     // Returns the last surname.
     static std::wstring last_name(
@@ -768,7 +776,7 @@ class nng
         [[maybe_unused]] effolkronium::random_local& engine)
     {
         return *(split_name(name).crbegin());
-    };
+    }
 
     // Returns any name (until it hits a space character).
     static std::wstring any_name(const std::wstring& name,
@@ -778,7 +786,7 @@ class nng
         std::vector<std::wstring> names_list{split_name(name)};
 
         return *engine.get(names_list);
-    };
+    }
 
     // Returns only the name initials.
     static std::wstring initials(
@@ -795,7 +803,7 @@ class nng
         }
 
         return nickname;
-    };
+    }
 
     // Mix the last two names.
     static std::wstring mix_two(const std::wstring& name,
@@ -822,7 +830,7 @@ class nng
         }
 
         return nickname;
-    };
+    }
 
     // Mix first name with last name initial.
     static std::wstring first_plus_initial(
@@ -832,7 +840,12 @@ class nng
         // Container with names/surnames that compose the received name.
         const std::vector<std::wstring> names_list{split_name(name)};
 
-        return *(names_list.cbegin()) + names_list.crbegin()->front();
+        if (names_list.size() < 2)
+        {
+            return names_list.front();
+        }
+
+        return names_list.front() + names_list.back().front();
     }
 
     // Mix last name with first name initial.
@@ -841,9 +854,14 @@ class nng
         [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Container with names/surnames that compose the received name.
-        auto names_list{split_name(name)};
+        const auto names_list{split_name(name)};
 
-        return names_list.cbegin()->front() + *(names_list.crbegin());
+        if (names_list.size() < 2)
+        {
+            return names_list.front();
+        }
+
+        return names_list.front().front() + names_list.back();
     }
 
     // Reduce a random part of the name.
@@ -910,8 +928,8 @@ class nng
         // Proceed to generate nickname based on a word list.
         else if (!_wordlists.empty())
         {
-            // Randomly select a worldist.
-            word_container drawn_wordlist =
+            // Randomly select a wordlist.
+            const word_container& drawn_wordlist =
                 *engine.get(_wordlists);
 
             // Randomly selects a word from the wordlist.
@@ -925,7 +943,7 @@ class nng
         }
 
         return format(leetify({nick, original}, engine), engine);
-    };
+    }
 
     // Try parsing the wordlist file and index it into our container.
     void parse_file(const std::filesystem::path& file)

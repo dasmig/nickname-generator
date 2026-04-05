@@ -28,6 +28,10 @@ The library currently supports the following:
   - Animals
   - Japanese
 
+- **Deterministic Seeding**. Per-call `get_nickname(name, seed)` for reproducible results, generator-level `seed()` / `unseed()` for deterministic sequences, and `nickname::seed()` for replaying a previous generation.
+
+- **Resource Inspection**. `has_wordlists()` lets you verify resources loaded before generating.
+
 
 ## Integration
  
@@ -69,6 +73,17 @@ std::wstring random_nickname = nng::instance().get_nickname();
 // Access the original source string.
 auto nick = nng::instance().get_nickname(L"Jane Doe");
 std::wcout << nick.plain() << L" -> " << nick << std::endl;
+
+// Deterministic generation — same seed always produces the same nickname.
+auto seeded = nng::instance().get_nickname(L"Jane Doe", 42);
+
+// Replay a previous nickname using its seed.
+auto replay = nng::instance().get_nickname(L"Jane Doe", seeded.seed());
+
+// Seed the engine for a deterministic sequence.
+nng::instance().seed(100);
+// ... generate nicknames ...
+nng::instance().unseed(); // restore non-deterministic state
 ```
 
 For the complete feature guide — transforms, word lists, thread safety, and more — see the **[Usage Guide](doc/usage.md)**.

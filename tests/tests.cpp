@@ -203,6 +203,22 @@ TEST_CASE("nng - instance() returns same object", "[nng]")
     REQUIRE(&a == &b);
 }
 
+TEST_CASE("nng - has_wordlists() returns true after load", "[nng]")
+{
+    REQUIRE(gen().has_wordlists());
+}
+
+TEST_CASE("nng - has_wordlists() returns false when empty", "[nng][edge]")
+{
+    auto& g = dasmig::nng::instance();
+    auto saved = nng_test_access::wordlists(g);
+    nng_test_access::wordlists(g).clear();
+
+    REQUIRE_FALSE(g.has_wordlists());
+
+    nng_test_access::wordlists(g) = saved;
+}
+
 TEST_CASE("nng - get_nickname() without name returns non-empty",
           "[nng][generation]")
 {
@@ -654,11 +670,25 @@ TEST_CASE("first_plus_initial combines first name + last initial",
     REQUIRE(result == L"JohnD");
 }
 
+TEST_CASE("first_plus_initial with single name returns name",
+          "[transforms][edge]")
+{
+    auto result = nng_test_access::first_plus_initial(L"Mononym");
+    REQUIRE(result == L"Mononym");
+}
+
 TEST_CASE("initial_plus_last combines first initial + last name",
           "[transforms]")
 {
     auto result = nng_test_access::initial_plus_last(L"John Doe");
     REQUIRE(result == L"JDoe");
+}
+
+TEST_CASE("initial_plus_last with single name returns name",
+          "[transforms][edge]")
+{
+    auto result = nng_test_access::initial_plus_last(L"Mononym");
+    REQUIRE(result == L"Mononym");
 }
 
 TEST_CASE("reduce_single_name removes vowels", "[transforms]")
