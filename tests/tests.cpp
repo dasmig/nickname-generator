@@ -150,6 +150,10 @@ struct nng_test_access
     {
         return g._wordlists;
     }
+    static std::vector<std::wstring> split_name(const std::wstring& s)
+    {
+        return dasmig::nng::split_name(s);
+    }
 };
 
 // ---------------------------------------------------------------------------
@@ -928,4 +932,96 @@ TEST_CASE("singleton still works after multi-instance changes",
     auto& g = dasmig::nng::instance();
     auto nick = g.get_nickname(L"Singleton Check");
     REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
+}
+
+// ===== Robustness / edge-case tests ========================================
+
+TEST_CASE("split_name filters consecutive spaces", "[nng][robustness]")
+{
+    // Double space should not produce empty parts.
+    auto parts = nng_test_access::split_name(L"John  Doe");
+    REQUIRE(parts.size() == 2);
+    REQUIRE(parts[0] == L"John");
+    REQUIRE(parts[1] == L"Doe");
+
+    // Leading/trailing spaces.
+    auto parts2 = nng_test_access::split_name(L" Jane ");
+    REQUIRE(parts2.size() == 1);
+    REQUIRE(parts2[0] == L"Jane");
+}
+
+TEST_CASE("initials handles consecutive spaces safely", "[nng][robustness]")
+{
+    // Should not crash — previously UB with empty parts.
+    auto result = nng_test_access::initials(L"John  Doe");
+    REQUIRE(result.size() == 2);
+}
+
+TEST_CASE("mix_two handles single-character name parts", "[nng][robustness]")
+{
+    // "Li A" has a 1-char part — previously UB (min > max in distribution).
+    for (int i = 0; i < 50; ++i)
+    {
+        auto nick = nng_test_access::mix_two(L"Li A");
+        REQUIRE_FALSE(nick.empty());
+    }
+}
+
+TEST_CASE("leetify does not stack-overflow on unmappable input",
+          "[nng][robustness]")
+{
+    // "M" (single consonant, no leet map entry) previously caused infinite
+    // recursion. Now capped at max depth.
+    dasmig::nng g;
+    g.load("resources");
+    g.seed(1);
+    for (int i = 0; i < 20; ++i)
+    {
+        auto nick = g.get_nickname(L"M");
+        REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
+    }
+}
+
+TEST_CASE("name-only generation works without wordlists", "[nng][robustness]")
+{
+    dasmig::nng g; // No load() — wordlists empty.
+
+    // Every call should succeed (previously 75% threw).
+    for (int i = 0; i < 50; ++i)
+    {
+        auto nick = g.get_nickname(L"John Smith");
+        REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
+    }
+}
+
+TEST_CASE("no-name no-wordlists still throws", "[nng][robustness]")
+{
+    dasmig::nng g;
+    REQUIRE_THROWS_AS(g.get_nickname(), std::invalid_argument);
+}
+
+TEST_CASE("64-bit seeds differing in upper bits produce different nicknames",
+          "[nng][robustness]")
+{
+    auto& g = gen();
+
+    // Two seeds identical in lower 32 bits but different in upper 32 bits.
+    constexpr std::uint64_t seed_lo = 42;
+    constexpr std::uint64_t seed_hi =
+        42 | (static_cast<std::uint64_t>(1) << 32U);
+
+    bool found_different = false;
+    for (int i = 0; i < 100; ++i)
+    {
+        auto a = static_cast<std::wstring>(
+            g.get_nickname(L"Bit Test", seed_lo + i));
+        auto b = static_cast<std::wstring>(
+            g.get_nickname(L"Bit Test", seed_hi + i));
+        if (a != b)
+        {
+            found_different = true;
+            break;
+        }
+    }
+    REQUIRE(found_different);
 }

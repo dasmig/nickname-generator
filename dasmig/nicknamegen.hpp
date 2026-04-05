@@ -139,8 +139,8 @@ class nng
     {
         auto call_seed = static_cast<std::uint64_t>(_engine());
         effolkronium::random_local call_engine;
-        call_engine.seed(
-            static_cast<std::mt19937::result_type>(call_seed));
+        call_engine.seed(static_cast<std::mt19937::result_type>(
+            (call_seed ^ (call_seed >> 32U))));
         auto result = solver(name, call_engine);
         result._seed = call_seed;
         return result;
@@ -160,8 +160,8 @@ class nng
                                         std::uint64_t call_seed) const
     {
         effolkronium::random_local call_engine;
-        call_engine.seed(
-            static_cast<std::mt19937::result_type>(call_seed));
+        call_engine.seed(static_cast<std::mt19937::result_type>(
+            (call_seed ^ (call_seed >> 32U))));
         auto result = solver(name, call_engine);
         result._seed = call_seed;
         return result;
@@ -179,7 +179,7 @@ class nng
     /// @return `*this` for chaining.
     nng& seed(std::uint64_t seed_value)
     {
-        _engine.seed(static_cast<std::mt19937::result_type>(seed_value));
+        _engine.seed(seed_value);
         return *this;
     }
 
@@ -253,7 +253,7 @@ class nng
     std::vector<word_container> _wordlists;
 
     // Per-instance random engine for seed drawing.
-    std::mt19937 _engine{std::random_device{}()};
+    std::mt19937_64 _engine{std::random_device{}()};
 
     // Tag type for the auto-probing singleton constructor.
     struct auto_probe_tag {};
@@ -420,27 +420,22 @@ class nng
         // Nickname with leetified letter.
         std::wstring leet_nickname{nickname};
 
-        // Candidate letters to be leetified.
-        std::vector<wchar_t> candidates;
+        // Collect indices of leet-mappable characters.
+        std::vector<std::size_t> candidate_positions;
 
-        // Retrieve candidates for replacement.
-        for (const auto& character : leet_nickname)
+        for (std::size_t i = 0; i < leet_nickname.size(); ++i)
         {
-            if (_leet_map.contains(character))
+            if (_leet_map.contains(leet_nickname[i]))
             {
-                candidates.push_back(character);
+                candidate_positions.push_back(i);
             }
         }
 
-        // Pick one candidate at random and replace its first occurrence.
-        if (!candidates.empty())
+        // Pick one position at random and replace it.
+        if (!candidate_positions.empty())
         {
-            auto target = *engine.get(candidates);
-            if (auto it = std::ranges::find(leet_nickname, target);
-                it != leet_nickname.end())
-            {
-                *it = _leet_map.at(target);
-            }
+            auto pos = *engine.get(candidate_positions);
+            leet_nickname[pos] = _leet_map.at(leet_nickname[pos]);
         }
 
         return leet_nickname;
@@ -471,8 +466,12 @@ class nng
     // NOLINTNEXTLINE(misc-no-recursion)
     static nickname leetify(nickname nickname,
                              effolkronium::random_local& engine,
-                             bool force = false)
+                             bool force = false, int depth = 0)
     {
+        // Maximum recursion depth to prevent stack overflow on unmappable
+        // inputs.
+        static constexpr int max_depth{7};
+
         // We have 1/2 chance of leetifying, force parameter overrides this.
         if (force || engine.get<bool>())
         {
@@ -488,32 +487,40 @@ class nng
                     allleet   // n1ckn4m3
                 };
 
+                // Capture pre-transform value to detect no-ops.
+                auto before = nickname._internal_string;
+
                 // New leetified nickname.
                 nickname._internal_string =
                     (*engine.get(
                         possible_generators))(nickname, engine);
 
-                // If the new nickname didn't suffer any alteration, force
-                // leetify again.
-                return leetify(nickname, engine,
-                               nickname._internal_string ==
-                                   nickname._original_string);
+                // If the new nickname didn't change and we haven't exceeded
+                // the depth limit, force leetify again.
+                if (depth < max_depth)
+                {
+                    return leetify(nickname, engine,
+                                   nickname._internal_string == before,
+                                   depth + 1);
+                }
             }
+            else
+            {
+                // Possible methods utilized to leetify the nickname.
+                static const generators possible_generators{
+                    xfy,     // nicknameX
+                    reverse, // emanckin
+                    yfy,     // nicknamy
+                    numify,  // nickname2000
+                    tracefy, // nickname-
+                    ingify,  // nicknaming
+                };
 
-            // Possible methods utilized to leetify the nickname.
-            static const generators possible_generators{
-                xfy,     // nicknameX
-                reverse, // emanckin
-                yfy,     // nicknamy
-                numify,  // nickname2000
-                tracefy, // nickname-
-                ingify,  // nicknaming
-            };
-
-            // New leetified nickname.
-            nickname._internal_string =
-                (*engine.get(possible_generators))(
-                    nickname, engine);
+                // New leetified nickname.
+                nickname._internal_string =
+                    (*engine.get(possible_generators))(
+                        nickname, engine);
+            }
         }
 
         return nickname;
@@ -761,6 +768,7 @@ class nng
     }
 
     // Split a full name into a vector containing each name/surname.
+    // Empty parts (from consecutive spaces) are filtered out.
     [[nodiscard]] static std::vector<std::wstring> split_name(
         const std::wstring& name)
     {
@@ -768,8 +776,12 @@ class nng
 
         for (auto part : name | std::views::split(L' '))
         {
-            parts.emplace_back(std::ranges::begin(part),
-                               std::ranges::end(part));
+            std::wstring s(std::ranges::begin(part),
+                           std::ranges::end(part));
+            if (!s.empty())
+            {
+                parts.push_back(std::move(s));
+            }
         }
 
         return parts;
@@ -829,17 +841,25 @@ class nng
         auto names_list{split_name(name)};
 
         // Reduce name list to two names.
-        while (names_list.size() > 2)
+        if (names_list.size() > 2)
         {
-            names_list.erase(names_list.begin());
+            names_list.erase(names_list.begin(),
+                             names_list.end() - 2);
         }
 
         // Iterate through each name retrieving random number of letters.
         for (const auto& name : names_list)
         {
-            nickname.append(name.substr(
-                0, engine.get<std::size_t>(
-                       2, name.size())));
+            if (name.size() < 2)
+            {
+                nickname.append(name);
+            }
+            else
+            {
+                nickname.append(name.substr(
+                    0, engine.get<std::size_t>(
+                           2, name.size())));
+            }
         }
 
         return nickname;
@@ -914,9 +934,16 @@ class nng
         // 1/4 chance of nickname being name related.
         static constexpr double name_related_probability{0.25};
 
+        // When name is provided, use name-based generation with
+        // name_related_probability — but always use the name if there are
+        // no wordlists to fall back to.
+        const bool use_name =
+            !name.empty() &&
+            (_wordlists.empty() ||
+             engine.get<bool>(name_related_probability));
+
         // Proceed to generate nickname based on name.
-        if (!name.empty() && engine.get<bool>(
-                                 name_related_probability))
+        if (use_name)
         {
             // Possible methods utilized to generate a nickname.
             // Purposefully adds redundancy to first and last name with any name
@@ -979,11 +1006,25 @@ class nng
             // Retrieves list of words.
             while (std::getline(tentative_file, file_line, delimiter))
             {
-                words_read.push_back(file_line);
+                // Strip trailing carriage return for cross-platform
+                // compatibility.
+                if (!file_line.empty() && file_line.back() == L'\r')
+                {
+                    file_line.pop_back();
+                }
+
+                // Skip empty lines (including blank trailing lines).
+                if (!file_line.empty())
+                {
+                    words_read.push_back(file_line);
+                }
             }
 
             // Index our container.
-            _wordlists.push_back(words_read);
+            if (!words_read.empty())
+            {
+                _wordlists.push_back(std::move(words_read));
+            }
         }
     }
 
