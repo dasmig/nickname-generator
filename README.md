@@ -23,7 +23,7 @@ The library currently supports the following:
 
 ## Integration
  
-[`nicknamegen.hpp`](https://github.com/dasmig/nickname-generator/dasmig/blob/master/nicknamegen.hpp) is the single required file [released here](https://github.com/dasmig/name-generator/releases). You need to add
+[`nicknamegen.hpp`](https://github.com/dasmig/nickname-generator/blob/master/dasmig/nicknamegen.hpp) is the single required file [released here](https://github.com/dasmig/nickname-generator/releases). You need to add
 
 ```cpp
 #include <dasmig/nicknamegen.hpp>
@@ -32,7 +32,7 @@ The library currently supports the following:
 using nng = dasmig::nng;
 ```
 
-to the files you want to generate nicknames and set the necessary switches to enable C++17 (e.g., `-std=c++17` for GCC and Clang).
+to the files you want to generate nicknames and set the necessary switches to enable C++23 (e.g., `-std=c++23` for GCC and Clang).
 
 Additionally you must supply the nickname generator with the [`resources`](https://github.com/dasmig/nickname-generator/tree/master/resources) folder also available in the [release](https://github.com/dasmig/nickname-generator/releases).
 

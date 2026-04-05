@@ -1,18 +1,16 @@
 #include "random.hpp"
-#include <atomic>
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
-#include <functional>
 #include <iostream>
-#include <list>
 #include <map>
-#include <memory>
-#include <optional>
-#include <sstream>
+#include <ranges>
+#include <stdexcept>
 #include <string>
 #include <utility>
-#include <variant>
 #include <vector>
 
 // Written by Diego Dasso Migotto - diegomigotto at hotmail dot com
@@ -66,6 +64,10 @@ class nickname
 
 // The nickname generator generates as realistic as possible gamers nicknames
 // akin to professional players, allowing requests specifying the player name.
+//
+// Thread safety: the singleton instance() is safe. However, load() mutates
+// internal state and must not be called concurrently with get_nickname().
+// Call load() once before starting concurrent generation.
 class nng
 {
   public:
@@ -112,19 +114,19 @@ class nng
     // Container of words.
     using word_container = std::vector<std::wstring>;
 
-    // Container of methods used to modify the nickname.
-    using generators =
-        std::vector<std::function<std::wstring(const std::wstring&)>>;
+    // Function pointer type for nickname transform methods.
+    using generator_fn = std::wstring (*)(const std::wstring&);
 
-    // Default folder to look for wordlists resources.
-    static const inline std::filesystem::path _default_resources_path{
-        R"(C:\Repos\nickname-generator\resources\)"};
+    // Container of methods used to modify the nickname.
+    using generators = std::vector<generator_fn>;
 
     // Contains all vowel characters.
+    // NOLINTNEXTLINE(bugprone-throwing-static-initialization)
     static const inline std::wstring _vowels{
         L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ"};
 
-    // Contains all vowel characters.
+    // Maps letters to their leet-speak digit equivalents.
+    // NOLINTNEXTLINE(bugprone-throwing-static-initialization)
     static const inline std::map<wchar_t, wchar_t> _leet_map{
         {L'o', L'0'}, {L'O', L'0'}, {L'i', L'1'}, {L'I', L'1'}, {L's', L'2'},
         {L'S', L'2'}, {L'e', L'3'}, {L'E', L'3'}, {L'a', L'4'}, {L'A', L'4'},
@@ -137,7 +139,17 @@ class nng
     // Initialize random generator, no complicated processes.
     nng()
     {
-        load(_default_resources_path);
+        // Try common resource locations relative to typical working directories.
+        for (const auto& candidate : {"resources", "../resources",
+                                       "nickname-generator/resources"})
+        {
+            const std::filesystem::path p{candidate};
+            if (std::filesystem::exists(p) && std::filesystem::is_directory(p))
+            {
+                load(p);
+                break;
+            }
+        }
     };
 
     // We don't manage any resource, all should gracefully deallocate by itself.
@@ -175,7 +187,7 @@ class nng
         // Original nickname reversed.
         std::wstring reverse_nickname{nickname};
 
-        std::reverse(std::begin(reverse_nickname), std::end(reverse_nickname));
+        std::ranges::reverse(reverse_nickname);
 
         return reverse_nickname;
     }
@@ -187,8 +199,7 @@ class nng
         // Nickname with an y a the end.
         std::wstring nicknamy{nickname};
 
-        if (std::find(std::cbegin(_vowels), std::cend(_vowels),
-                      nickname.back()) != std::end(_vowels))
+        if (_vowels.contains(nickname.back()))
         {
             nicknamy.back() = L'y';
         }
@@ -203,18 +214,21 @@ class nng
     // Adds a number to the end of nickname.
     static std::wstring numify(const std::wstring& nickname)
     {
-        // Nickname with an y a the end.
+        // Nickname with a number at the end.
         std::wstring nickname_with_number{nickname};
 
-        // Utilized to randomize digit added to the end of the nickname.
+        // Maximum single digit value for numified nicknames.
+        static constexpr int max_digit{9};
+
+        // Append a random digit character (1-9).
         nickname_with_number.push_back(
-            effolkronium::random_thread_local::get(1, 9));
+            L'0' + effolkronium::random_thread_local::get(1, max_digit));
 
         // Append n zeroes to the end of the nickname.
-        for (std::size_t i{0}; i < effolkronium::random_thread_local::get(0, 3);
-             i++)
+        for (auto i = effolkronium::random_thread_local::get(0, 3); i > 0;
+             i--)
         {
-            nickname_with_number.push_back('0');
+            nickname_with_number.push_back(L'0');
         }
 
         return nickname_with_number;
@@ -233,19 +247,16 @@ class nng
         // Nickname with an ing a the end.
         std::wstring nicknaming{nickname};
 
-        if (std::find(std::cbegin(_vowels), std::cend(_vowels),
-                      nickname.back()) != std::end(_vowels))
+        if (_vowels.contains(nickname.back()))
         {
             nicknaming.back() = L'i';
-            nicknaming.push_back(L'n');
-            nicknaming.push_back(L'g');
         }
         else
         {
             nicknaming.push_back(L'i');
-            nicknaming.push_back(L'n');
-            nicknaming.push_back(L'g');
         }
+
+        nicknaming.append(L"ng");
 
         return nicknaming;
     }
@@ -263,13 +274,10 @@ class nng
         // once.
         for (const auto& vowel : simple_vowels)
         {
-            // Iterator pointing to vowel finded in the nickname.
-            const auto vowel_iterator =
-                std::find(std::cbegin(nicknamee), std::cend(nicknamee), vowel);
-
-            if (vowel_iterator != std::cend(nicknamee))
+            if (auto it = std::ranges::find(nicknamee, vowel);
+                it != nicknamee.end())
             {
-                nicknamee.insert(vowel_iterator, *vowel_iterator);
+                nicknamee.insert(it, *it);
                 break;
             }
         }
@@ -283,15 +291,26 @@ class nng
         // Nickname with leetified letter.
         std::wstring leet_nickname{nickname};
 
-        // Candidates letter to be leetified.
-        std::list<wchar_t> candidates{};
+        // Candidate letters to be leetified.
+        std::vector<wchar_t> candidates;
 
         // Retrieve candidates for replacement.
-        for (auto& character : leet_nickname)
+        for (const auto& character : leet_nickname)
         {
             if (_leet_map.contains(character))
             {
                 candidates.push_back(character);
+            }
+        }
+
+        // Pick one candidate at random and replace its first occurrence.
+        if (!candidates.empty())
+        {
+            auto target = *effolkronium::random_thread_local::get(candidates);
+            if (auto it = std::ranges::find(leet_nickname, target);
+                it != leet_nickname.end())
+            {
+                *it = _leet_map.at(target);
             }
         }
 
@@ -369,21 +388,19 @@ class nng
     // Returns the nickname with an underscore separating its original parts.
     static std::wstring snake_case(const std::wstring& name)
     {
-        // Name containing underscore.
-        std::wstring snakefied_name{name};
+        std::wstring result;
+        result.reserve(name.size() + 4);
 
-        // Introduce an underscore if it's the begginning of a part of the
-        // nickname, except the first.
-        for (std::size_t i = 1; i < snakefied_name.size(); i++)
+        for (auto&& [i, ch] : name | std::views::enumerate)
         {
-            if (iswupper(snakefied_name.at(i)) != 0)
+            if (i > 0 && iswupper(ch) != 0)
             {
-                snakefied_name.insert(i, L"_");
-                i++;
+                result.push_back(L'_');
             }
+            result.push_back(ch);
         }
 
-        return snakefied_name;
+        return result;
     };
 
     // Returns the nickname in all uppercase.
@@ -393,8 +410,8 @@ class nng
         std::wstring upper_name{name};
 
         // Transform every character to uppercase if possible.
-        std::for_each(
-            std::begin(upper_name), std::end(upper_name),
+        std::ranges::for_each(
+            upper_name,
             [](wchar_t& character) { character = std::towupper(character); });
 
         return upper_name;
@@ -407,8 +424,8 @@ class nng
         std::wstring lower_name{name};
 
         // Transform every character to lower if possible.
-        std::for_each(
-            std::begin(lower_name), std::end(lower_name),
+        std::ranges::for_each(
+            lower_name,
             [](wchar_t& character) { character = std::towlower(character); });
 
         return lower_name;
@@ -424,6 +441,11 @@ class nng
     // Returns the nickname in sentence case.
     static std::wstring sentence_case(const std::wstring& name)
     {
+        if (name.empty())
+        {
+            return name;
+        }
+
         // Sentence case formatted nickname.
         std::wstring sentence_name{lower_case(name)};
 
@@ -436,6 +458,11 @@ class nng
     // Returns the nickname in camel case.
     static std::wstring camel_case(const std::wstring& name)
     {
+        if (name.empty())
+        {
+            return name;
+        }
+
         // Camel case formatted nickname.
         std::wstring camel_name{name};
 
@@ -448,6 +475,11 @@ class nng
     // Returns the nickname in reverse sentence case.
     static std::wstring reverse_sentence_case(const std::wstring& name)
     {
+        if (name.empty())
+        {
+            return name;
+        }
+
         // Reverse sentence case formatted nickname.
         std::wstring rsentence_name{lower_case(name)};
 
@@ -460,6 +492,11 @@ class nng
     // Returns the nickname in bathtub case.
     static std::wstring bathtub_case(const std::wstring& name)
     {
+        if (name.empty())
+        {
+            return name;
+        }
+
         // Bathtub case formatted nickname.
         std::wstring bathtub_name{lower_case(name)};
 
@@ -478,12 +515,12 @@ class nng
         // Winding case formatted nickname.
         std::wstring winding_name{lower_case(name)};
 
-        // Transform to uppercase half of the letters.
-        for (std::size_t i = 0; i < winding_name.size(); i++)
+        // Transform to uppercase every other character.
+        for (auto&& [i, ch] : winding_name | std::views::enumerate)
         {
             if ((i % 2) == 0)
             {
-                winding_name.at(i) = std::towupper(winding_name.at(i));
+                ch = std::towupper(ch);
             }
         }
 
@@ -496,14 +533,13 @@ class nng
         // Name in all lower case characters.
         std::wstring random_name{lower_case(name)};
 
-        // Transform every character to lower if possible.
-        std::for_each(std::begin(random_name), std::end(random_name),
-                      [&](wchar_t& character) {
-                          if (effolkronium::random_thread_local::get<bool>())
-                          {
-                              character = std::towupper(character);
-                          }
-                      });
+        // Randomly uppercase each character.
+        std::ranges::for_each(random_name, [](wchar_t& character) {
+            if (effolkronium::random_thread_local::get<bool>())
+            {
+                character = std::towupper(character);
+            }
+        });
 
         return random_name;
     };
@@ -527,7 +563,10 @@ class nng
     static nickname format(nickname nickname)
     {
         // 1% chance of snake case. nick_name
-        if (effolkronium::random_thread_local::get<bool>(0.01))
+        // Probability of applying snake_case formatting.
+        static constexpr double snake_case_probability{0.01};
+
+        if (effolkronium::random_thread_local::get<bool>(snake_case_probability))
         {
             nickname._internal_string = snake_case(nickname);
         }
@@ -575,21 +614,15 @@ class nng
     // Split a full name into a vector containing each name/surname.
     static std::vector<std::wstring> split_name(const std::wstring& name)
     {
-        // Container with names/surnames split by space character.
-        std::vector<std::wstring> splitted_name;
+        std::vector<std::wstring> parts;
 
-        // String to ease the name splitting.
-        std::wstringstream full_name_stream{name};
-
-        // Single part of the full name.
-        std::wstring single_name;
-
-        while (std::getline(full_name_stream, single_name, L' '))
+        for (auto part : name | std::views::split(L' '))
         {
-            splitted_name.push_back(single_name);
+            parts.emplace_back(std::ranges::begin(part),
+                               std::ranges::end(part));
         }
 
-        return splitted_name;
+        return parts;
     };
 
     // Returns the first name.
@@ -619,13 +652,10 @@ class nng
         // Generated nickname containing each name first letter.
         std::wstring nickname;
 
-        // Container with names/surnames that compose the received name.
-        std::vector<std::wstring> names_list{split_name(name)};
-
-        // Iterate through each name retrieving first letter.
-        for (const auto& name : names_list)
+        // Retrieve first letter from each part of the name.
+        for (const auto& part : split_name(name))
         {
-            nickname.push_back(*(name.cbegin()));
+            nickname.push_back(part.front());
         }
 
         return nickname;
@@ -661,7 +691,7 @@ class nng
     static std::wstring first_plus_initial(const std::wstring& name)
     {
         // Container with names/surnames that compose the received name.
-        std::vector<std::wstring> names_list{split_name(name)};
+        const std::vector<std::wstring> names_list{split_name(name)};
 
         return *(names_list.cbegin()) + names_list.crbegin()->front();
     }
@@ -688,8 +718,7 @@ class nng
             single_name.erase(
                 std::remove_if(single_name.begin() + 1, single_name.end() - 1,
                                [&single_name](const wchar_t& character) {
-                                   return ((_vowels.find(character) !=
-                                            std::wstring::npos) &&
+                                   return (_vowels.contains(character) &&
                                            (single_name.size() > 3));
                                }),
                 single_name.end() - 1);
@@ -709,7 +738,7 @@ class nng
         std::wstring nick;
 
         // 1/4 chance of nickname being name related.
-        const std::double_t name_related_probability{0.25};
+        static constexpr double name_related_probability{0.25};
 
         // Proceed to generate nickname based on name.
         if (!name.empty() && effolkronium::random_thread_local::get<bool>(
