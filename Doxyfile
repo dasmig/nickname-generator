@@ -2,7 +2,7 @@
 # Run: doxygen Doxyfile
 
 PROJECT_NAME           = "Nickname Generator"
-PROJECT_NUMBER         = 1.0.0
+PROJECT_NUMBER         = 1.1.0
 PROJECT_BRIEF          = "Gamer-style nickname generation for C++23"
 PROJECT_LOGO           =
 
