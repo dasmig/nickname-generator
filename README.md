@@ -21,7 +21,7 @@ The library currently supports the following:
 
 - **Nickname Generation**. The library randomly generates a nickname based on either a name or a list of words.
 
-- **'Leetifying' Process**. After selecting a name/word it will randomly apply any number of customizations to uniquefy the nickname.
+- **Leetifying Process**. After selecting a name/word it will randomly apply any number of customizations to uniquefy the nickname.
 
 - **Word Lists Supported**. Currently the following word lists are supported and a matching database is packed together with the library:
   - Adjectives 

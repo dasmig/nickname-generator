@@ -31,5 +31,23 @@ int main()
     std::wcout << gen.get_nickname(L"First Middle Last Suffix") << std::endl;
     std::wcout << gen.get_nickname(L"José García") << std::endl;
 
+    // Deterministic generation — same seed always produces the same nickname.
+    std::wcout << L"\n=== Seeded (deterministic) ===" << std::endl;
+    auto nick = gen.get_nickname(L"Alberto Bins Elis", 42);
+    std::wcout << L"seed 42 -> " << nick << std::endl;
+
+    // Replay: retrieve the seed from a nickname and replay it.
+    auto replay = gen.get_nickname(L"Alberto Bins Elis", nick.seed());
+    std::wcout << L"replay  -> " << replay << std::endl;
+
+    // Seed the engine for a deterministic sequence.
+    gen.seed(100);
+    std::wcout << L"\n=== Seeded sequence ===" << std::endl;
+    for (int i = 0; i < 3; ++i)
+    {
+        std::wcout << gen.get_nickname(L"Sequence Test") << std::endl;
+    }
+    gen.unseed(); // restore non-deterministic state
+
     return 0;
 }

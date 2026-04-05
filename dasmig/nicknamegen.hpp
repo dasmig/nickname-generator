@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <cwctype>
 #include <filesystem>
 #include <fstream>
@@ -40,6 +41,14 @@ class nickname
         return _original_string;
     }
 
+    /// @brief Retrieve the random seed used to generate this nickname.
+    /// @return The per-call seed for replay.
+    /// @see nng::get_nickname(const std::wstring&, std::uint64_t)
+    [[nodiscard]] std::uint64_t seed() const
+    {
+        return _seed;
+    }
+
     /// @brief Implicit conversion to std::wstring.
     /// @return The transformed nickname string.
     operator std::wstring() const // NOLINT(hicpp-explicit-conversions)
@@ -62,15 +71,19 @@ class nickname
     /// @brief Private constructor — nicknames are created only by nng.
     /// @param nickname_str The transformed nickname text.
     /// @param original_str The original source text.
-    nickname(std::wstring nickname_str, std::wstring original_str)
+    nickname(std::wstring nickname_str, std::wstring original_str,
+             std::uint64_t seed = 0)
         : _internal_string(std::move(nickname_str)),
-          _original_string(std::move(original_str))
+          _original_string(std::move(original_str)),
+          _seed(seed)
     {
     }
 
     std::wstring _internal_string; ///< Current nickname after transforms.
 
     std::wstring _original_string; ///< Original source string.
+
+    std::uint64_t _seed{0}; ///< Random seed used to generate this nickname.
 
     friend class nng; ///< Allows nng to construct nicknames.
 };
@@ -110,8 +123,66 @@ class nng
     /// @throws std::invalid_argument If name is empty and no word lists loaded.
     [[nodiscard]] nickname get_nickname(const std::wstring& name = L"") const
     {
-        return solver(name);
-    };
+        auto call_seed = static_cast<std::uint64_t>(
+            effolkronium::random_thread_local::get<std::uint64_t>());
+        effolkronium::random_local call_engine;
+        call_engine.seed(
+            static_cast<std::mt19937::result_type>(call_seed));
+        auto result = solver(name, call_engine);
+        result._seed = call_seed;
+        return result;
+    }
+
+    /// @brief Generate a deterministic nickname using a specific seed.
+    ///
+    /// Given the same name and seed, this method always produces the same
+    /// nickname. Retrieve the seed from a previous nickname via
+    /// nickname::seed().
+    ///
+    /// @param name Full name to base the nickname on (may be empty).
+    /// @param call_seed Seed for reproducible results.
+    /// @return A nickname object with both transformed and original strings.
+    /// @throws std::invalid_argument If name is empty and no word lists loaded.
+    [[nodiscard]] nickname get_nickname(const std::wstring& name,
+                                        std::uint64_t call_seed) const
+    {
+        effolkronium::random_local call_engine;
+        call_engine.seed(
+            static_cast<std::mt19937::result_type>(call_seed));
+        auto result = solver(name, call_engine);
+        result._seed = call_seed;
+        return result;
+    }
+
+    /// @name Seeding
+    /// @{
+
+    /// @brief Seed the random engine for deterministic sequences.
+    ///
+    /// Subsequent get_nickname() calls (without an explicit seed) draw
+    /// per-call seeds from this engine, producing a reproducible sequence.
+    /// Thread-local: only affects the calling thread.
+    ///
+    /// @param seed_value The seed value.
+    /// @return `*this` for chaining.
+    nng& seed(std::uint64_t seed_value)
+    {
+        effolkronium::random_thread_local::seed(
+            static_cast<std::mt19937::result_type>(seed_value));
+        return *this;
+    }
+
+    /// @brief Reseed the engine with a non-deterministic source.
+    ///
+    /// Subsequent get_nickname() calls will produce non-reproducible results.
+    /// @return `*this` for chaining.
+    nng& unseed()
+    {
+        effolkronium::random_thread_local::reseed();
+        return *this;
+    }
+
+    /// @}
 
     /// @brief Load word list files from a directory.
     ///
@@ -141,7 +212,8 @@ class nng
     using word_container = std::vector<std::wstring>;
 
     // Function pointer type for nickname transform methods.
-    using generator_fn = std::wstring (*)(const std::wstring&);
+    using generator_fn = std::wstring (*)(const std::wstring&,
+                                          effolkronium::random_local&);
 
     // Container of methods used to modify the nickname.
     using generators = std::vector<generator_fn>;
@@ -182,13 +254,14 @@ class nng
     ~nng() = default;
 
     // Add an x to either the front or back of the nickname - or both.
-    static std::wstring xfy(const std::wstring& nickname)
+    static std::wstring xfy(const std::wstring& nickname,
+                             effolkronium::random_local& engine)
     {
         // Xfied nickname.
         std::wstring x_nickname{nickname};
 
         // Distribution of possible xy, yx, xyx probability.
-        switch (effolkronium::random_thread_local::get(0, 2))
+        switch (engine.get(0, 2))
         {
         case 0:
             x_nickname.push_back(L'X');
@@ -206,7 +279,9 @@ class nng
     }
 
     // Writes the nickname backwards such as emankcin.
-    static std::wstring reverse(const std::wstring& nickname)
+    static std::wstring reverse(
+        const std::wstring& nickname,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Original nickname reversed.
         std::wstring reverse_nickname{nickname};
@@ -218,7 +293,9 @@ class nng
 
     // Adds an y to the end of nickname or replace the last character if it's a
     // vowel.
-    static std::wstring yfy(const std::wstring& nickname)
+    static std::wstring yfy(
+        const std::wstring& nickname,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Nickname with an y a the end.
         std::wstring nicknamy{nickname};
@@ -236,7 +313,8 @@ class nng
     }
 
     // Adds a number to the end of nickname.
-    static std::wstring numify(const std::wstring& nickname)
+    static std::wstring numify(const std::wstring& nickname,
+                                effolkronium::random_local& engine)
     {
         // Nickname with a number at the end.
         std::wstring nickname_with_number{nickname};
@@ -246,10 +324,10 @@ class nng
 
         // Append a random digit character (1-9).
         nickname_with_number.push_back(
-            L'0' + effolkronium::random_thread_local::get(1, max_digit));
+            L'0' + engine.get(1, max_digit));
 
         // Append n zeroes to the end of the nickname.
-        for (auto i = effolkronium::random_thread_local::get(0, 3); i > 0;
+        for (auto i = engine.get(0, 3); i > 0;
              i--)
         {
             nickname_with_number.push_back(L'0');
@@ -259,14 +337,18 @@ class nng
     }
 
     // Adds a trace to the end of the nickname.
-    static std::wstring tracefy(const std::wstring& nickname)
+    static std::wstring tracefy(
+        const std::wstring& nickname,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         return nickname + L"-";
     }
 
     // Adds an ing to the end of nickname or replace the last character if it's
     // a vowel.
-    static std::wstring ingify(const std::wstring& nickname)
+    static std::wstring ingify(
+        const std::wstring& nickname,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Nickname with an ing a the end.
         std::wstring nicknaming{nickname};
@@ -287,7 +369,9 @@ class nng
 
     // Finds an aeio vowel and duplicates it, returns same nickname if no
     // available vowel.
-    static std::wstring duovowel(const std::wstring& nickname)
+    static std::wstring duovowel(
+        const std::wstring& nickname,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         static const std::wstring simple_vowels = L"aeio";
 
@@ -310,7 +394,8 @@ class nng
     }
 
     // Replaces a letter by a numerical character.
-    static std::wstring oneleet(const std::wstring& nickname)
+    static std::wstring oneleet(const std::wstring& nickname,
+                                 effolkronium::random_local& engine)
     {
         // Nickname with leetified letter.
         std::wstring leet_nickname{nickname};
@@ -330,7 +415,7 @@ class nng
         // Pick one candidate at random and replace its first occurrence.
         if (!candidates.empty())
         {
-            auto target = *effolkronium::random_thread_local::get(candidates);
+            auto target = *engine.get(candidates);
             if (auto it = std::ranges::find(leet_nickname, target);
                 it != leet_nickname.end())
             {
@@ -343,7 +428,9 @@ class nng
 
     // Replaces as much letters as possible in the nickname by numerical
     // characters.
-    static std::wstring allleet(const std::wstring& nickname)
+    static std::wstring allleet(
+        const std::wstring& nickname,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Nickname leetified.
         std::wstring leet_nickname{nickname};
@@ -362,14 +449,16 @@ class nng
 
     // Slightly modify the nickname to add some flavor.
     // NOLINTNEXTLINE(misc-no-recursion)
-    static nickname leetify(nickname nickname, bool force = false)
+    static nickname leetify(nickname nickname,
+                             effolkronium::random_local& engine,
+                             bool force = false)
     {
         // We have 1/2 chance of leetifying, force parameter overrides this.
-        if (force || effolkronium::random_thread_local::get<bool>())
+        if (force || engine.get<bool>())
         {
             // When leetifying, there's 1/2 chance of using a finalizer or a
             // random leetifier.
-            if (effolkronium::random_thread_local::get<bool>())
+            if (engine.get<bool>())
             {
                 // Possible methods utilized to leetify the nickname.
                 static const generators possible_generators{
@@ -381,13 +470,14 @@ class nng
 
                 // New leetified nickname.
                 nickname._internal_string =
-                    (*effolkronium::random_thread_local::get(
-                        possible_generators))(nickname);
+                    (*engine.get(
+                        possible_generators))(nickname, engine);
 
                 // If the new nickname didn't suffer any alteration, force
                 // leetify again.
-                return leetify(nickname, nickname._internal_string ==
-                                             nickname._original_string);
+                return leetify(nickname, engine,
+                               nickname._internal_string ==
+                                   nickname._original_string);
             }
 
             // Possible methods utilized to leetify the nickname.
@@ -402,8 +492,8 @@ class nng
 
             // New leetified nickname.
             nickname._internal_string =
-                (*effolkronium::random_thread_local::get(possible_generators))(
-                    nickname);
+                (*engine.get(possible_generators))(
+                    nickname, engine);
         }
 
         return nickname;
@@ -428,7 +518,9 @@ class nng
     };
 
     // Returns the nickname in all uppercase.
-    static std::wstring upper_case(const std::wstring& name)
+    static std::wstring upper_case(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Name in all upper case characters.
         std::wstring upper_name{name};
@@ -442,7 +534,9 @@ class nng
     };
 
     // Returns the nickname in all lowercase.
-    static std::wstring lower_case(const std::wstring& name)
+    static std::wstring lower_case(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Name in all lower case characters.
         std::wstring lower_name{name};
@@ -456,14 +550,17 @@ class nng
     };
 
     // Returns the nickname in title case.
-    static std::wstring title_case(const std::wstring& name)
+    static std::wstring title_case(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Well, titlecase is actually the default.
         return name;
     };
 
     // Returns the nickname in sentence case.
-    static std::wstring sentence_case(const std::wstring& name)
+    static std::wstring sentence_case(const std::wstring& name,
+                                       effolkronium::random_local& engine)
     {
         if (name.empty())
         {
@@ -471,7 +568,7 @@ class nng
         }
 
         // Sentence case formatted nickname.
-        std::wstring sentence_name{lower_case(name)};
+        std::wstring sentence_name{lower_case(name, engine)};
 
         // Transform the first character to upper case.
         sentence_name.at(0) = std::towupper(sentence_name.at(0));
@@ -480,7 +577,9 @@ class nng
     };
 
     // Returns the nickname in camel case.
-    static std::wstring camel_case(const std::wstring& name)
+    static std::wstring camel_case(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         if (name.empty())
         {
@@ -497,7 +596,8 @@ class nng
     };
 
     // Returns the nickname in reverse sentence case.
-    static std::wstring reverse_sentence_case(const std::wstring& name)
+    static std::wstring reverse_sentence_case(const std::wstring& name,
+                                               effolkronium::random_local& engine)
     {
         if (name.empty())
         {
@@ -505,7 +605,7 @@ class nng
         }
 
         // Reverse sentence case formatted nickname.
-        std::wstring rsentence_name{lower_case(name)};
+        std::wstring rsentence_name{lower_case(name, engine)};
 
         // Transform the last character to upper case.
         rsentence_name.back() = std::towupper(rsentence_name.back());
@@ -514,7 +614,8 @@ class nng
     };
 
     // Returns the nickname in bathtub case.
-    static std::wstring bathtub_case(const std::wstring& name)
+    static std::wstring bathtub_case(const std::wstring& name,
+                                      effolkronium::random_local& engine)
     {
         if (name.empty())
         {
@@ -522,7 +623,7 @@ class nng
         }
 
         // Bathtub case formatted nickname.
-        std::wstring bathtub_name{lower_case(name)};
+        std::wstring bathtub_name{lower_case(name, engine)};
 
         // Transform the first character to upper case.
         bathtub_name.at(0) = std::towupper(bathtub_name.at(0));
@@ -534,10 +635,11 @@ class nng
     };
 
     // Returns the nickname in winding case.
-    static std::wstring winding_case(const std::wstring& name)
+    static std::wstring winding_case(const std::wstring& name,
+                                      effolkronium::random_local& engine)
     {
         // Winding case formatted nickname.
-        std::wstring winding_name{lower_case(name)};
+        std::wstring winding_name{lower_case(name, engine)};
 
         // Transform to uppercase every other character.
         for (auto&& [i, ch] : winding_name | std::views::enumerate)
@@ -552,14 +654,15 @@ class nng
     };
 
     // Returns the nickname with case in a random fashion.
-    static std::wstring random_case(const std::wstring& name)
+    static std::wstring random_case(const std::wstring& name,
+                                     effolkronium::random_local& engine)
     {
         // Name in all lower case characters.
-        std::wstring random_name{lower_case(name)};
+        std::wstring random_name{lower_case(name, engine)};
 
         // Randomly uppercase each character.
-        std::ranges::for_each(random_name, [](wchar_t& character) {
-            if (effolkronium::random_thread_local::get<bool>())
+        std::ranges::for_each(random_name, [&engine](wchar_t& character) {
+            if (engine.get<bool>())
             {
                 character = std::towupper(character);
             }
@@ -570,13 +673,14 @@ class nng
 
     // Returns the nickname all lower case with a single random character
     // uppercase.
-    static std::wstring random_single_case(const std::wstring& name)
+    static std::wstring random_single_case(const std::wstring& name,
+                                            effolkronium::random_local& engine)
     {
         // Name in all lower case characters.
-        std::wstring random_name{lower_case(name)};
+        std::wstring random_name{lower_case(name, engine)};
 
         // Position of single random character to be uppercased.
-        auto random_char{effolkronium::random_thread_local::get(random_name)};
+        auto random_char{engine.get(random_name)};
 
         *random_char = std::towupper(*random_char);
 
@@ -584,13 +688,14 @@ class nng
     };
 
     // Format nickname utilizing one of the possible cases.
-    static nickname format(nickname nickname)
+    static nickname format(nickname nickname,
+                            effolkronium::random_local& engine)
     {
         // 1% chance of snake case. nick_name
         // Probability of applying snake_case formatting.
         static constexpr double snake_case_probability{0.01};
 
-        if (effolkronium::random_thread_local::get<bool>(snake_case_probability))
+        if (engine.get<bool>(snake_case_probability))
         {
             nickname._internal_string = snake_case(nickname);
         }
@@ -629,8 +734,8 @@ class nng
             random_single_case // nicknaMe
         };
 
-        nickname._internal_string = (*effolkronium::random_thread_local::get(
-            possible_generators))(nickname);
+        nickname._internal_string = (*engine.get(
+            possible_generators))(nickname, engine);
 
         return nickname;
     };
@@ -650,28 +755,35 @@ class nng
     };
 
     // Returns the first name.
-    static std::wstring first_name(const std::wstring& name)
+    static std::wstring first_name(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         return *(split_name(name).cbegin());
     };
 
     // Returns the last surname.
-    static std::wstring last_name(const std::wstring& name)
+    static std::wstring last_name(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         return *(split_name(name).crbegin());
     };
 
     // Returns any name (until it hits a space character).
-    static std::wstring any_name(const std::wstring& name)
+    static std::wstring any_name(const std::wstring& name,
+                                  effolkronium::random_local& engine)
     {
         // Container with names/surnames that compose the received name.
         std::vector<std::wstring> names_list{split_name(name)};
 
-        return *effolkronium::random_thread_local::get(names_list);
+        return *engine.get(names_list);
     };
 
     // Returns only the name initials.
-    static std::wstring initials(const std::wstring& name)
+    static std::wstring initials(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Generated nickname containing each name first letter.
         std::wstring nickname;
@@ -686,7 +798,8 @@ class nng
     };
 
     // Mix the last two names.
-    static std::wstring mix_two(const std::wstring& name)
+    static std::wstring mix_two(const std::wstring& name,
+                                 effolkronium::random_local& engine)
     {
         // Generated nickname containing a part the last two names.
         std::wstring nickname;
@@ -704,7 +817,7 @@ class nng
         for (const auto& name : names_list)
         {
             nickname.append(name.substr(
-                0, effolkronium::random_thread_local::get<std::size_t>(
+                0, engine.get<std::size_t>(
                        2, name.size())));
         }
 
@@ -712,7 +825,9 @@ class nng
     };
 
     // Mix first name with last name initial.
-    static std::wstring first_plus_initial(const std::wstring& name)
+    static std::wstring first_plus_initial(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Container with names/surnames that compose the received name.
         const std::vector<std::wstring> names_list{split_name(name)};
@@ -721,7 +836,9 @@ class nng
     }
 
     // Mix last name with first name initial.
-    static std::wstring initial_plus_last(const std::wstring& name)
+    static std::wstring initial_plus_last(
+        const std::wstring& name,
+        [[maybe_unused]] effolkronium::random_local& engine)
     {
         // Container with names/surnames that compose the received name.
         auto names_list{split_name(name)};
@@ -730,10 +847,11 @@ class nng
     }
 
     // Reduce a random part of the name.
-    static std::wstring reduce_single_name(const std::wstring& name)
+    static std::wstring reduce_single_name(const std::wstring& name,
+                                            effolkronium::random_local& engine)
     {
         // Random part of name.
-        std::wstring single_name{any_name(name)};
+        std::wstring single_name{any_name(name, engine)};
 
         if (single_name.size() > 3)
         {
@@ -753,7 +871,8 @@ class nng
 
     // Contains logic to generate a random nickname optionally based on the
     // player full name.
-    [[nodiscard]] nickname solver(const std::wstring& name) const
+    [[nodiscard]] nickname solver(const std::wstring& name,
+                                   effolkronium::random_local& engine) const
     {
         // Holds the original word used to generate the nickname.
         std::wstring original;
@@ -765,7 +884,7 @@ class nng
         static constexpr double name_related_probability{0.25};
 
         // Proceed to generate nickname based on name.
-        if (!name.empty() && effolkronium::random_thread_local::get<bool>(
+        if (!name.empty() && engine.get<bool>(
                                  name_related_probability))
         {
             // Possible methods utilized to generate a nickname.
@@ -785,19 +904,19 @@ class nng
             original = name;
 
             // Return a nickname from one of the name based possibilities.
-            nick = (*effolkronium::random_thread_local::get(
-                possible_generators))(name);
+            nick = (*engine.get(
+                possible_generators))(name, engine);
         }
         // Proceed to generate nickname based on a word list.
         else if (!_wordlists.empty())
         {
             // Randomly select a worldist.
             word_container drawn_wordlist =
-                *effolkronium::random_thread_local::get(_wordlists);
+                *engine.get(_wordlists);
 
             // Randomly selects a word from the wordlist.
             nick = original =
-                *effolkronium::random_thread_local::get(drawn_wordlist);
+                *engine.get(drawn_wordlist);
         }
         else
         {
@@ -805,7 +924,7 @@ class nng
                 "Received no name and word lists are empty"));
         }
 
-        return format(leetify({nick, original}));
+        return format(leetify({nick, original}, engine), engine);
     };
 
     // Try parsing the wordlist file and index it into our container.

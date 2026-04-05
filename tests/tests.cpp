@@ -14,39 +14,48 @@ struct nng_test_access
 {
     static std::wstring sentence_case(const std::wstring& s)
     {
-        return dasmig::nng::sentence_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::sentence_case(s, e);
     }
     static std::wstring camel_case(const std::wstring& s)
     {
-        return dasmig::nng::camel_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::camel_case(s, e);
     }
     static std::wstring reverse_sentence_case(const std::wstring& s)
     {
-        return dasmig::nng::reverse_sentence_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::reverse_sentence_case(s, e);
     }
     static std::wstring bathtub_case(const std::wstring& s)
     {
-        return dasmig::nng::bathtub_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::bathtub_case(s, e);
     }
     static std::wstring upper_case(const std::wstring& s)
     {
-        return dasmig::nng::upper_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::upper_case(s, e);
     }
     static std::wstring lower_case(const std::wstring& s)
     {
-        return dasmig::nng::lower_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::lower_case(s, e);
     }
     static std::wstring title_case(const std::wstring& s)
     {
-        return dasmig::nng::title_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::title_case(s, e);
     }
     static std::wstring winding_case(const std::wstring& s)
     {
-        return dasmig::nng::winding_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::winding_case(s, e);
     }
     static std::wstring random_single_case(const std::wstring& s)
     {
-        return dasmig::nng::random_single_case(s);
+        effolkronium::random_local e;
+        return dasmig::nng::random_single_case(s, e);
     }
     static std::wstring snake_case(const std::wstring& s)
     {
@@ -54,71 +63,88 @@ struct nng_test_access
     }
     static std::wstring xfy(const std::wstring& s)
     {
-        return dasmig::nng::xfy(s);
+        effolkronium::random_local e;
+        return dasmig::nng::xfy(s, e);
     }
     static std::wstring reverse(const std::wstring& s)
     {
-        return dasmig::nng::reverse(s);
+        effolkronium::random_local e;
+        return dasmig::nng::reverse(s, e);
     }
     static std::wstring yfy(const std::wstring& s)
     {
-        return dasmig::nng::yfy(s);
+        effolkronium::random_local e;
+        return dasmig::nng::yfy(s, e);
     }
     static std::wstring numify(const std::wstring& s)
     {
-        return dasmig::nng::numify(s);
+        effolkronium::random_local e;
+        return dasmig::nng::numify(s, e);
     }
     static std::wstring tracefy(const std::wstring& s)
     {
-        return dasmig::nng::tracefy(s);
+        effolkronium::random_local e;
+        return dasmig::nng::tracefy(s, e);
     }
     static std::wstring ingify(const std::wstring& s)
     {
-        return dasmig::nng::ingify(s);
+        effolkronium::random_local e;
+        return dasmig::nng::ingify(s, e);
     }
     static std::wstring duovowel(const std::wstring& s)
     {
-        return dasmig::nng::duovowel(s);
+        effolkronium::random_local e;
+        return dasmig::nng::duovowel(s, e);
     }
     static std::wstring oneleet(const std::wstring& s)
     {
-        return dasmig::nng::oneleet(s);
+        effolkronium::random_local e;
+        return dasmig::nng::oneleet(s, e);
     }
     static std::wstring allleet(const std::wstring& s)
     {
-        return dasmig::nng::allleet(s);
+        effolkronium::random_local e;
+        return dasmig::nng::allleet(s, e);
     }
     static std::wstring first_name(const std::wstring& s)
     {
-        return dasmig::nng::first_name(s);
+        effolkronium::random_local e;
+        return dasmig::nng::first_name(s, e);
     }
     static std::wstring last_name(const std::wstring& s)
     {
-        return dasmig::nng::last_name(s);
+        effolkronium::random_local e;
+        return dasmig::nng::last_name(s, e);
     }
     static std::wstring any_name(const std::wstring& s)
     {
-        return dasmig::nng::any_name(s);
+        effolkronium::random_local e;
+        return dasmig::nng::any_name(s, e);
     }
     static std::wstring initials(const std::wstring& s)
     {
-        return dasmig::nng::initials(s);
+        effolkronium::random_local e;
+        return dasmig::nng::initials(s, e);
     }
     static std::wstring mix_two(const std::wstring& s)
     {
-        return dasmig::nng::mix_two(s);
+        effolkronium::random_local e;
+        return dasmig::nng::mix_two(s, e);
     }
     static std::wstring first_plus_initial(const std::wstring& s)
     {
-        return dasmig::nng::first_plus_initial(s);
+        effolkronium::random_local e;
+        return dasmig::nng::first_plus_initial(s, e);
     }
     static std::wstring initial_plus_last(const std::wstring& s)
     {
-        return dasmig::nng::initial_plus_last(s);
+        effolkronium::random_local e;
+        return dasmig::nng::initial_plus_last(s, e);
     }
     static std::wstring reduce_single_name(const std::wstring& s)
     {
-        return dasmig::nng::reduce_single_name(s);
+        effolkronium::random_local e;
+        return dasmig::nng::reduce_single_name(s, e);
     }
     static auto& wordlists(dasmig::nng& g)
     {
@@ -669,4 +695,131 @@ TEST_CASE("get_nickname throws when no name and no wordlists", "[nng][edge]")
 
     // Verify generator still works after restore.
     REQUIRE_NOTHROW(g.get_nickname());
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic seeding
+// ---------------------------------------------------------------------------
+TEST_CASE("get_nickname(name, seed) is deterministic", "[nng][seeding]")
+{
+    auto& g = gen();
+    constexpr std::uint64_t test_seed{12345};
+
+    auto nick1 = g.get_nickname(L"John Doe", test_seed);
+    auto nick2 = g.get_nickname(L"John Doe", test_seed);
+
+    REQUIRE(static_cast<std::wstring>(nick1) ==
+            static_cast<std::wstring>(nick2));
+    REQUIRE(nick1.plain() == nick2.plain());
+}
+
+TEST_CASE("get_nickname(empty, seed) is deterministic", "[nng][seeding]")
+{
+    auto& g = gen();
+    constexpr std::uint64_t test_seed{99999};
+
+    auto nick1 = g.get_nickname(L"", test_seed);
+    auto nick2 = g.get_nickname(L"", test_seed);
+
+    REQUIRE(static_cast<std::wstring>(nick1) ==
+            static_cast<std::wstring>(nick2));
+}
+
+TEST_CASE("different seeds produce different nicknames", "[nng][seeding]")
+{
+    auto& g = gen();
+
+    // Over a range of seeds, at least some should differ.
+    bool found_different = false;
+    auto baseline = static_cast<std::wstring>(
+        g.get_nickname(L"Test Player", 1));
+
+    for (std::uint64_t s = 2; s <= 100; ++s)
+    {
+        auto other = static_cast<std::wstring>(
+            g.get_nickname(L"Test Player", s));
+        if (other != baseline)
+        {
+            found_different = true;
+            break;
+        }
+    }
+    REQUIRE(found_different);
+}
+
+TEST_CASE("nickname::seed() returns the seed used", "[nng][seeding]")
+{
+    auto& g = gen();
+    constexpr std::uint64_t test_seed{42};
+
+    auto nick = g.get_nickname(L"Alice Bob", test_seed);
+    REQUIRE(nick.seed() == test_seed);
+}
+
+TEST_CASE("nickname::seed() can replay the same nickname", "[nng][seeding]")
+{
+    auto& g = gen();
+
+    auto nick1 = g.get_nickname(L"Carlos Mesa");
+    auto replay_seed = nick1.seed();
+
+    auto nick2 = g.get_nickname(L"Carlos Mesa", replay_seed);
+    REQUIRE(static_cast<std::wstring>(nick1) ==
+            static_cast<std::wstring>(nick2));
+}
+
+TEST_CASE("seed() produces deterministic sequence", "[nng][seeding]")
+{
+    auto& g = gen();
+
+    g.seed(777);
+    auto a1 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
+    auto a2 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
+    auto a3 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
+
+    g.seed(777);
+    auto b1 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
+    auto b2 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
+    auto b3 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
+
+    REQUIRE(a1 == b1);
+    REQUIRE(a2 == b2);
+    REQUIRE(a3 == b3);
+
+    // Restore non-deterministic state.
+    g.unseed();
+}
+
+TEST_CASE("unseed() restores non-deterministic behavior", "[nng][seeding]")
+{
+    auto& g = gen();
+
+    g.seed(1234);
+    auto seeded = static_cast<std::wstring>(g.get_nickname(L"Unseed Test"));
+
+    g.unseed();
+
+    // After unseeding, generating many nicknames should eventually produce
+    // something different from the seeded result.
+    bool found_different = false;
+    for (int i = 0; i < 200; ++i)
+    {
+        auto nick = static_cast<std::wstring>(
+            g.get_nickname(L"Unseed Test"));
+        if (nick != seeded)
+        {
+            found_different = true;
+            break;
+        }
+    }
+    REQUIRE(found_different);
+}
+
+TEST_CASE("seed() chaining works", "[nng][seeding]")
+{
+    auto& g = gen();
+
+    // seed() and unseed() return *this for chaining.
+    REQUIRE(&g.seed(100) == &g);
+    REQUIRE(&g.unseed() == &g);
 }
