@@ -11,6 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
+#include <random>
 #include <ranges>
 #include <stdexcept>
 #include <string>
@@ -88,32 +89,45 @@ class nickname
     friend class nng; ///< Allows nng to construct nicknames.
 };
 
-/// @brief Singleton nickname generator that produces gamer-style nicknames.
+/// @brief Nickname generator that produces gamer-style nicknames.
 ///
 /// Generates realistic gamer nicknames akin to professional players, optionally
 /// based on a player's real name. Applies random "leetifying" transforms and
 /// case formatting for variety.
 ///
+/// Can be used as a singleton via instance() or constructed independently.
+/// Independent instances own their own word lists and random engine,
+/// making them safe for concurrent use without shared state.
+///
 /// @par Thread safety
-/// The singleton instance() is safe for concurrent access. However, load()
-/// mutates internal state and must not be called concurrently with
-/// get_nickname(). Call load() once before starting concurrent generation.
+/// Each instance is independent. Concurrent calls to get_nickname() on
+/// the **same** instance require external synchronization. load() mutates
+/// internal state and must not be called concurrently with get_nickname()
+/// on the same instance.
 class nng
 {
   public:
-    // Copy/move constructors can be deleted since they are not going to be
-    // used due to singleton pattern.
-    nng(const nng&) = delete;
-    nng(nng&&) = delete;
-    nng& operator=(const nng&) = delete;
-    nng& operator=(nng&&) = delete;
+    /// @brief Default constructor — creates an empty generator with no word lists.
+    ///
+    /// Call load() to populate word lists before generating nicknames.
+    nng() = default;
 
-    /// @brief Thread-safe access to the nickname generator singleton.
+    nng(const nng&) = delete;            ///< Not copyable.
+    nng& operator=(const nng&) = delete; ///< Not copyable.
+    nng(nng&&) = default;                ///< Move constructor.
+    nng& operator=(nng&&) = default;     ///< Move assignment.
+    ~nng() = default;                    ///< Default destructor.
+
+    /// @brief Access the global singleton instance.
+    ///
+    /// The singleton auto-probes common resource paths on first access.
+    /// For independent generators (e.g., inside an entity-generator component),
+    /// prefer constructing a separate nng instance.
     /// @return Reference to the global nng instance.
     static nng& instance()
     {
-        static nng instance;
-        return instance;
+        static nng inst{auto_probe_tag{}};
+        return inst;
     }
 
     /// @brief Generate a nickname, optionally based on a name.
@@ -121,10 +135,9 @@ class nng
     ///        random word from the loaded word lists is used instead.
     /// @return A nickname object with both transformed and original strings.
     /// @throws std::invalid_argument If name is empty and no word lists loaded.
-    [[nodiscard]] nickname get_nickname(const std::wstring& name = L"") const
+    [[nodiscard]] nickname get_nickname(const std::wstring& name = L"")
     {
-        auto call_seed = static_cast<std::uint64_t>(
-            effolkronium::random_thread_local::get<std::uint64_t>());
+        auto call_seed = static_cast<std::uint64_t>(_engine());
         effolkronium::random_local call_engine;
         call_engine.seed(
             static_cast<std::mt19937::result_type>(call_seed));
@@ -157,18 +170,16 @@ class nng
     /// @name Seeding
     /// @{
 
-    /// @brief Seed the random engine for deterministic sequences.
+    /// @brief Seed the internal random engine for deterministic sequences.
     ///
     /// Subsequent get_nickname() calls (without an explicit seed) draw
     /// per-call seeds from this engine, producing a reproducible sequence.
-    /// Thread-local: only affects the calling thread.
     ///
     /// @param seed_value The seed value.
     /// @return `*this` for chaining.
     nng& seed(std::uint64_t seed_value)
     {
-        effolkronium::random_thread_local::seed(
-            static_cast<std::mt19937::result_type>(seed_value));
+        _engine.seed(static_cast<std::mt19937::result_type>(seed_value));
         return *this;
     }
 
@@ -178,7 +189,7 @@ class nng
     /// @return `*this` for chaining.
     nng& unseed()
     {
-        effolkronium::random_thread_local::reseed();
+        _engine.seed(std::random_device{}());
         return *this;
     }
 
@@ -241,10 +252,15 @@ class nng
     // Vector for randomly accessing wordlists.
     std::vector<word_container> _wordlists;
 
-    // Initialize random generator, no complicated processes.
-    nng()
+    // Per-instance random engine for seed drawing.
+    std::mt19937 _engine{std::random_device{}()};
+
+    // Tag type for the auto-probing singleton constructor.
+    struct auto_probe_tag {};
+
+    // Singleton constructor: auto-probes common resource locations.
+    explicit nng(auto_probe_tag /*tag*/)
     {
-        // Try common resource locations relative to typical working directories.
         for (const auto& candidate : {"resources", "../resources",
                                        "nickname-generator/resources"})
         {
@@ -256,9 +272,6 @@ class nng
             }
         }
     }
-
-    // We don't manage any resource, all should gracefully deallocate by itself.
-    ~nng() = default;
 
     // Add an x to either the front or back of the nickname - or both.
     static std::wstring xfy(const std::wstring& nickname,

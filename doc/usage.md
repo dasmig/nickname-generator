@@ -14,6 +14,7 @@ This guide covers every feature of the nickname-generator library in detail. For
 <li><a href="#word-lists">Word Lists</a></li>
 <li><a href="#thread-safety">Thread Safety</a></li>
 <li><a href="#seeding-and-deterministic-generation">Seeding and Deterministic Generation</a></li>
+<li><a href="#multi-instance-support">Multi-Instance Support</a></li>
 <li><a href="#error-reference">Error Reference</a></li>
 </ul>
 
@@ -140,13 +141,18 @@ directory. Each file should contain one word per line.
 
 ## Thread Safety
 
+Each `nng` instance is independent. The static `instance()` singleton uses a
+local static for safe initialization.
+
 | Operation | Thread-safe? |
 |-----------|-------------|
 | `instance()` | Yes (static local) |
-| `get_nickname()` | Yes (read-only) |
-| `load()` | **No** — must not be called concurrently with `get_nickname()` |
+| `get_nickname()` on **different** instances | Yes |
+| `get_nickname()` on the **same** instance | **No** — requires external synchronization |
+| `load()` | **No** — must not be called concurrently with `get_nickname()` on the same instance |
 
-Call `load()` once during initialization before spawning threads.
+Call `load()` once during initialization before spawning threads. For
+concurrent generation, give each thread its own `nng` instance.
 
 ## Seeding and Deterministic Generation
 
@@ -210,6 +216,55 @@ if (!dasmig::nng::instance().has_wordlists())
 {
     dasmig::nng::instance().load("/path/to/resources");
 }
+```
+
+## Multi-Instance Support
+
+In addition to the singleton `instance()`, you can construct independent `nng`
+objects. Each instance owns its own word lists and random engine, so they
+operate without shared state — ideal for embedding inside other generators or
+running multiple configurations side by side.
+
+```cpp
+// Create an independent generator.
+dasmig::nng gen;
+
+// Load a custom word list directory.
+gen.load("path/to/my-words");
+
+// Generate nicknames — independent from instance().
+std::wcout << gen.get_nickname(L"Player One") << L"\n";
+```
+
+### Separate Seeding
+
+Each instance maintains its own engine, so seeding one does not affect another:
+
+```cpp
+dasmig::nng a;
+dasmig::nng b;
+a.load("resources");
+b.load("resources");
+
+a.seed(42);
+b.seed(99);
+
+// a and b produce different sequences.
+std::wcout << a.get_nickname(L"Test") << L"\n";
+std::wcout << b.get_nickname(L"Test") << L"\n";
+```
+
+### Move Semantics
+
+Instances can be moved (but not copied), which lets you store them in
+containers or transfer ownership:
+
+```cpp
+dasmig::nng src;
+src.load("resources");
+
+dasmig::nng dst = std::move(src);
+// dst now owns the word lists and engine; src is in a moved-from state.
 ```
 
 ## Error Reference

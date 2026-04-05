@@ -32,6 +32,8 @@ The library currently supports the following:
 
 - **Resource Inspection**. `has_wordlists()` lets you verify resources loaded before generating.
 
+- **Multi-Instance Support**. Construct independent `nng` instances with their own word lists and random engine — ideal for embedding inside other generators. The classic `instance()` singleton is still available for convenience.
+
 
 ## Integration
  
@@ -84,6 +86,11 @@ auto replay = nng::instance().get_nickname(L"Jane Doe", seeded.seed());
 nng::instance().seed(100);
 // ... generate nicknames ...
 nng::instance().unseed(); // restore non-deterministic state
+
+// Independent instance — separate word lists and random engine.
+nng my_gen;
+my_gen.load("path/to/resources");
+std::wstring nick2 = my_gen.get_nickname(L"Own Instance");
 ```
 
 For the complete feature guide — transforms, word lists, thread safety, and more — see the **[Usage Guide](doc/usage.md)**.

@@ -49,5 +49,14 @@ int main()
     }
     gen.unseed(); // restore non-deterministic state
 
+    // Independent instance with its own word lists and engine.
+    std::wcout << L"\n=== Independent instance ===" << std::endl;
+    dasmig::nng my_gen;
+    my_gen.load("resources");
+    for (int i = 0; i < 5; ++i)
+    {
+        std::wcout << my_gen.get_nickname(L"Own Instance") << std::endl;
+    }
+
     return 0;
 }

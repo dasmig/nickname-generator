@@ -853,3 +853,79 @@ TEST_CASE("seed() chaining works", "[nng][seeding]")
     REQUIRE(&g.seed(100) == &g);
     REQUIRE(&g.unseed() == &g);
 }
+
+// ===== Multi-instance tests ================================================
+
+TEST_CASE("independent instance can load and generate", "[nng][multi-instance]")
+{
+    dasmig::nng gen2;
+    REQUIRE_FALSE(gen2.has_wordlists());
+
+    gen2.load("resources");
+    REQUIRE(gen2.has_wordlists());
+
+    auto nick = gen2.get_nickname(L"Multi Instance");
+    REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
+}
+
+TEST_CASE("independent instances have separate word lists",
+          "[nng][multi-instance]")
+{
+    dasmig::nng a;
+    dasmig::nng b;
+
+    a.load("resources");
+    REQUIRE(a.has_wordlists());
+    REQUIRE_FALSE(b.has_wordlists());
+}
+
+TEST_CASE("independent instances have separate seeding",
+          "[nng][multi-instance]")
+{
+    dasmig::nng a;
+    dasmig::nng b;
+    a.load("resources");
+    b.load("resources");
+
+    constexpr std::uint64_t seed_a = 111;
+    constexpr std::uint64_t seed_b = 222;
+
+    a.seed(seed_a);
+    b.seed(seed_b);
+
+    auto nick_a = static_cast<std::wstring>(a.get_nickname(L"Seed Test"));
+    auto nick_b = static_cast<std::wstring>(b.get_nickname(L"Seed Test"));
+
+    // Re-seed and regenerate — each should replay independently.
+    a.seed(seed_a);
+    b.seed(seed_b);
+
+    auto nick_a2 = static_cast<std::wstring>(a.get_nickname(L"Seed Test"));
+    auto nick_b2 = static_cast<std::wstring>(b.get_nickname(L"Seed Test"));
+
+    REQUIRE(nick_a == nick_a2);
+    REQUIRE(nick_b == nick_b2);
+}
+
+TEST_CASE("moved instance retains state", "[nng][multi-instance]")
+{
+    dasmig::nng src;
+    src.load("resources");
+    src.seed(42);
+    auto expected = static_cast<std::wstring>(src.get_nickname(L"Move Test"));
+
+    // Re-seed to replay, then move.
+    src.seed(42);
+    dasmig::nng dst = std::move(src);
+    auto actual = static_cast<std::wstring>(dst.get_nickname(L"Move Test"));
+
+    REQUIRE(expected == actual);
+}
+
+TEST_CASE("singleton still works after multi-instance changes",
+          "[nng][multi-instance]")
+{
+    auto& g = dasmig::nng::instance();
+    auto nick = g.get_nickname(L"Singleton Check");
+    REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
+}
