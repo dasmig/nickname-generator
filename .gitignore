@@ -1,0 +1,23 @@
+# Build output
+build/
+
+# Local dependencies (not vendored)
+deps/
+*.o
+*.exe
+
+# Coverage
+coverage/
+*.profraw
+*.profdata
+
+# Doxygen output
+doc/api/
+
+# IDE / editor
+.vscode/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
