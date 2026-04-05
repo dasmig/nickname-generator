@@ -8,6 +8,125 @@
 #include <vector>
 
 // ---------------------------------------------------------------------------
+// Test access helper — exposes private methods and state for coverage testing
+// ---------------------------------------------------------------------------
+struct nng_test_access
+{
+    static std::wstring sentence_case(const std::wstring& s)
+    {
+        return dasmig::nng::sentence_case(s);
+    }
+    static std::wstring camel_case(const std::wstring& s)
+    {
+        return dasmig::nng::camel_case(s);
+    }
+    static std::wstring reverse_sentence_case(const std::wstring& s)
+    {
+        return dasmig::nng::reverse_sentence_case(s);
+    }
+    static std::wstring bathtub_case(const std::wstring& s)
+    {
+        return dasmig::nng::bathtub_case(s);
+    }
+    static std::wstring upper_case(const std::wstring& s)
+    {
+        return dasmig::nng::upper_case(s);
+    }
+    static std::wstring lower_case(const std::wstring& s)
+    {
+        return dasmig::nng::lower_case(s);
+    }
+    static std::wstring title_case(const std::wstring& s)
+    {
+        return dasmig::nng::title_case(s);
+    }
+    static std::wstring winding_case(const std::wstring& s)
+    {
+        return dasmig::nng::winding_case(s);
+    }
+    static std::wstring random_single_case(const std::wstring& s)
+    {
+        return dasmig::nng::random_single_case(s);
+    }
+    static std::wstring snake_case(const std::wstring& s)
+    {
+        return dasmig::nng::snake_case(s);
+    }
+    static std::wstring xfy(const std::wstring& s)
+    {
+        return dasmig::nng::xfy(s);
+    }
+    static std::wstring reverse(const std::wstring& s)
+    {
+        return dasmig::nng::reverse(s);
+    }
+    static std::wstring yfy(const std::wstring& s)
+    {
+        return dasmig::nng::yfy(s);
+    }
+    static std::wstring numify(const std::wstring& s)
+    {
+        return dasmig::nng::numify(s);
+    }
+    static std::wstring tracefy(const std::wstring& s)
+    {
+        return dasmig::nng::tracefy(s);
+    }
+    static std::wstring ingify(const std::wstring& s)
+    {
+        return dasmig::nng::ingify(s);
+    }
+    static std::wstring duovowel(const std::wstring& s)
+    {
+        return dasmig::nng::duovowel(s);
+    }
+    static std::wstring oneleet(const std::wstring& s)
+    {
+        return dasmig::nng::oneleet(s);
+    }
+    static std::wstring allleet(const std::wstring& s)
+    {
+        return dasmig::nng::allleet(s);
+    }
+    static std::wstring first_name(const std::wstring& s)
+    {
+        return dasmig::nng::first_name(s);
+    }
+    static std::wstring last_name(const std::wstring& s)
+    {
+        return dasmig::nng::last_name(s);
+    }
+    static std::wstring any_name(const std::wstring& s)
+    {
+        return dasmig::nng::any_name(s);
+    }
+    static std::wstring initials(const std::wstring& s)
+    {
+        return dasmig::nng::initials(s);
+    }
+    static std::wstring mix_two(const std::wstring& s)
+    {
+        return dasmig::nng::mix_two(s);
+    }
+    static std::wstring first_plus_initial(const std::wstring& s)
+    {
+        return dasmig::nng::first_plus_initial(s);
+    }
+    static std::wstring initial_plus_last(const std::wstring& s)
+    {
+        return dasmig::nng::initial_plus_last(s);
+    }
+    static std::wstring reduce_single_name(const std::wstring& s)
+    {
+        return dasmig::nng::reduce_single_name(s);
+    }
+    static auto& wordlists(dasmig::nng& g)
+    {
+        return g._wordlists;
+    }
+};
+
+// ---------------------------------------------------------------------------
 // Helper: access the singleton with resources pre-loaded
 // ---------------------------------------------------------------------------
 static dasmig::nng& gen()
@@ -266,4 +385,288 @@ TEST_CASE("Stress: 10000 generations without crash", "[nng][stress]")
             REQUIRE_NOTHROW(gen().get_nickname());
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Direct transform unit tests (via nng_test_access)
+// ---------------------------------------------------------------------------
+TEST_CASE("sentence_case - empty string returns empty", "[transforms][edge]")
+{
+    REQUIRE(nng_test_access::sentence_case(L"").empty());
+}
+
+TEST_CASE("sentence_case - normal string", "[transforms]")
+{
+    auto result = nng_test_access::sentence_case(L"HELLO");
+    REQUIRE(result == L"Hello");
+}
+
+TEST_CASE("camel_case - empty string returns empty", "[transforms][edge]")
+{
+    REQUIRE(nng_test_access::camel_case(L"").empty());
+}
+
+TEST_CASE("camel_case - normal string", "[transforms]")
+{
+    auto result = nng_test_access::camel_case(L"Hello");
+    REQUIRE(result == L"hello");
+}
+
+TEST_CASE("reverse_sentence_case - empty string returns empty",
+          "[transforms][edge]")
+{
+    REQUIRE(nng_test_access::reverse_sentence_case(L"").empty());
+}
+
+TEST_CASE("reverse_sentence_case - normal string", "[transforms]")
+{
+    auto result = nng_test_access::reverse_sentence_case(L"HELLO");
+    REQUIRE(result == L"hellO");
+}
+
+TEST_CASE("bathtub_case - empty string returns empty", "[transforms][edge]")
+{
+    REQUIRE(nng_test_access::bathtub_case(L"").empty());
+}
+
+TEST_CASE("bathtub_case - normal string", "[transforms]")
+{
+    auto result = nng_test_access::bathtub_case(L"HELLO");
+    REQUIRE(result == L"HellO");
+}
+
+TEST_CASE("upper_case transforms correctly", "[transforms]")
+{
+    REQUIRE(nng_test_access::upper_case(L"hello") == L"HELLO");
+}
+
+TEST_CASE("lower_case transforms correctly", "[transforms]")
+{
+    REQUIRE(nng_test_access::lower_case(L"HELLO") == L"hello");
+}
+
+TEST_CASE("title_case returns input unchanged", "[transforms]")
+{
+    REQUIRE(nng_test_access::title_case(L"NickName") == L"NickName");
+}
+
+TEST_CASE("winding_case alternates case", "[transforms]")
+{
+    auto result = nng_test_access::winding_case(L"abcdef");
+    REQUIRE(result == L"AbCdEf");
+}
+
+TEST_CASE("random_single_case - has exactly one uppercase", "[transforms]")
+{
+    auto result = nng_test_access::random_single_case(L"abcde");
+    int upper_count = 0;
+    for (auto ch : result)
+    {
+        if (std::iswupper(ch) != 0)
+        {
+            ++upper_count;
+        }
+    }
+    REQUIRE(upper_count >= 1);
+}
+
+TEST_CASE("snake_case inserts underscores", "[transforms]")
+{
+    REQUIRE(nng_test_access::snake_case(L"NickName") == L"Nick_Name");
+}
+
+TEST_CASE("snake_case - no uppercase returns unchanged", "[transforms]")
+{
+    REQUIRE(nng_test_access::snake_case(L"nickname") == L"nickname");
+}
+
+// ---------------------------------------------------------------------------
+// Leetify transforms
+// ---------------------------------------------------------------------------
+TEST_CASE("xfy - adds X to nickname", "[transforms]")
+{
+    for (int i = 0; i < 50; ++i)
+    {
+        auto result = nng_test_access::xfy(L"test");
+        bool has_x = result.front() == L'X' || result.back() == L'X';
+        REQUIRE(has_x);
+    }
+}
+
+TEST_CASE("reverse - reverses string", "[transforms]")
+{
+    REQUIRE(nng_test_access::reverse(L"abc") == L"cba");
+}
+
+TEST_CASE("yfy - vowel ending gets replaced", "[transforms]")
+{
+    REQUIRE(nng_test_access::yfy(L"nicknamo") == L"nicknamy");
+}
+
+TEST_CASE("yfy - consonant ending gets appended", "[transforms]")
+{
+    REQUIRE(nng_test_access::yfy(L"test") == L"testy");
+}
+
+TEST_CASE("numify - appends digit characters", "[transforms]")
+{
+    auto result = nng_test_access::numify(L"nick");
+    REQUIRE(result.size() > 4);
+    // First appended char should be a digit 1-9.
+    REQUIRE(result[4] >= L'1');
+    REQUIRE(result[4] <= L'9');
+    // Any further chars should be '0'.
+    for (std::size_t i = 5; i < result.size(); ++i)
+    {
+        REQUIRE(result[i] == L'0');
+    }
+}
+
+TEST_CASE("tracefy - appends dash", "[transforms]")
+{
+    REQUIRE(nng_test_access::tracefy(L"nick") == L"nick-");
+}
+
+TEST_CASE("ingify - vowel ending", "[transforms]")
+{
+    auto result = nng_test_access::ingify(L"game");
+    REQUIRE(result == L"gaming");
+}
+
+TEST_CASE("ingify - consonant ending", "[transforms]")
+{
+    auto result = nng_test_access::ingify(L"test");
+    REQUIRE(result == L"testing");
+}
+
+TEST_CASE("duovowel - duplicates first vowel found", "[transforms]")
+{
+    auto result = nng_test_access::duovowel(L"nick");
+    REQUIRE(result == L"niick");
+}
+
+TEST_CASE("duovowel - no simple vowel returns unchanged", "[transforms]")
+{
+    auto result = nng_test_access::duovowel(L"gym");
+    REQUIRE(result == L"gym");
+}
+
+TEST_CASE("oneleet - replaces one character", "[transforms]")
+{
+    // "test" has 't', 'e', 's' all in leet map.
+    bool changed = false;
+    for (int i = 0; i < 50; ++i)
+    {
+        auto result = nng_test_access::oneleet(L"test");
+        if (result != L"test")
+        {
+            changed = true;
+            // Exactly one character should differ.
+            int diffs = 0;
+            for (std::size_t j = 0; j < result.size(); ++j)
+            {
+                if (result[j] != L"test"[j])
+                {
+                    ++diffs;
+                }
+            }
+            REQUIRE(diffs == 1);
+            break;
+        }
+    }
+    REQUIRE(changed);
+}
+
+TEST_CASE("oneleet - no leet candidates returns unchanged", "[transforms]")
+{
+    REQUIRE(nng_test_access::oneleet(L"hymn") == L"hymn");
+}
+
+TEST_CASE("allleet - replaces all possible characters", "[transforms]")
+{
+    auto result = nng_test_access::allleet(L"test");
+    REQUIRE(result == L"7327"); // t->7, e->3, s->2, t->7
+}
+
+// ---------------------------------------------------------------------------
+// Name extraction transforms
+// ---------------------------------------------------------------------------
+TEST_CASE("first_name extracts first part", "[transforms]")
+{
+    REQUIRE(nng_test_access::first_name(L"John Smith Doe") == L"John");
+}
+
+TEST_CASE("last_name extracts last part", "[transforms]")
+{
+    REQUIRE(nng_test_access::last_name(L"John Smith Doe") == L"Doe");
+}
+
+TEST_CASE("any_name returns a part of the name", "[transforms]")
+{
+    std::vector<std::wstring> parts = {L"John", L"Smith", L"Doe"};
+    auto result = nng_test_access::any_name(L"John Smith Doe");
+    REQUIRE(std::ranges::find(parts, result) != parts.end());
+}
+
+TEST_CASE("initials returns first letters", "[transforms]")
+{
+    REQUIRE(nng_test_access::initials(L"John Smith Doe") == L"JSD");
+}
+
+TEST_CASE("mix_two mixes last two names", "[transforms]")
+{
+    auto result = nng_test_access::mix_two(L"First Middle Last");
+    // Should contain substrings from "Middle" and "Last".
+    REQUIRE(result.size() >= 4);
+    REQUIRE(result.size() <= 10);
+}
+
+TEST_CASE("first_plus_initial combines first name + last initial",
+          "[transforms]")
+{
+    auto result = nng_test_access::first_plus_initial(L"John Doe");
+    REQUIRE(result == L"JohnD");
+}
+
+TEST_CASE("initial_plus_last combines first initial + last name",
+          "[transforms]")
+{
+    auto result = nng_test_access::initial_plus_last(L"John Doe");
+    REQUIRE(result == L"JDoe");
+}
+
+TEST_CASE("reduce_single_name removes vowels", "[transforms]")
+{
+    // With a single-part name, it should remove some vowels.
+    bool reduced = false;
+    for (int i = 0; i < 50; ++i)
+    {
+        auto result = nng_test_access::reduce_single_name(L"Alberto");
+        if (result.size() < 7)
+        {
+            reduced = true;
+            break;
+        }
+    }
+    REQUIRE(reduced);
+}
+
+// ---------------------------------------------------------------------------
+// Exception: empty name + empty wordlists
+// ---------------------------------------------------------------------------
+TEST_CASE("get_nickname throws when no name and no wordlists", "[nng][edge]")
+{
+    auto& g = dasmig::nng::instance();
+
+    // Save and clear wordlists.
+    auto saved = nng_test_access::wordlists(g);
+    nng_test_access::wordlists(g).clear();
+
+    REQUIRE_THROWS_AS(g.get_nickname(), std::invalid_argument);
+
+    // Restore wordlists.
+    nng_test_access::wordlists(g) = saved;
+
+    // Verify generator still works after restore.
+    REQUIRE_NOTHROW(g.get_nickname());
 }

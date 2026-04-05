@@ -20,6 +20,9 @@
 /// @brief Nickname generator library — gamer-style nickname generation for C++23.
 /// @author Diego Dasso Migotto (diegomigotto at hotmail dot com)
 /// @see See doc/usage.md for the narrative tutorial.
+
+struct nng_test_access;
+
 namespace dasmig
 {
 
@@ -193,11 +196,9 @@ class nng
         case 1:
             x_nickname.insert(0, 1, L'X');
             break;
-        case 2:
+        default: // case 2
             x_nickname.push_back(L'X');
             x_nickname.insert(0, 1, L'X');
-            break;
-        default:
             break;
         }
 
@@ -835,6 +836,8 @@ class nng
             _wordlists.push_back(words_read);
         }
     }
+
+    friend struct ::nng_test_access;
 };
 } // namespace dasmig
 
