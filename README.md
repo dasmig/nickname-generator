@@ -1,11 +1,19 @@
 # Nickname Generator for C++
 
+> **Requires C++23** (e.g., `-std=c++23` for GCC/Clang, `/std:c++latest` for MSVC).
+
 [![Nickname Generator for C++](https://raw.githubusercontent.com/dasmig/nickname-generator/master/doc/nickname-generator.png)](https://github.com/dasmig/nickname-generator/releases)
 
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/dasmig/nickname-generator/master/LICENSE.MIT)
+[![CI](https://github.com/dasmig/nickname-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/dasmig/nickname-generator/actions/workflows/ci.yml)
 [![GitHub Releases](https://img.shields.io/github/release/dasmig/nickname-generator.svg)](https://github.com/dasmig/nickname-generator/releases)
-[![GitHub Downloads](https://img.shields.io/github/downloads/dasmig/nickname-generator/total)](https://github.com/dasmig/nickname-generator/releases)
 [![GitHub Issues](https://img.shields.io/github/issues/dasmig/nickname-generator.svg)](https://github.com/dasmig/nickname-generator/issues)
+[![C++23](https://img.shields.io/badge/standard-C%2B%2B23-blue.svg)](https://en.cppreference.com/w/cpp/23)
+[![Header-only](https://img.shields.io/badge/type-header--only-green.svg)](https://github.com/dasmig/nickname-generator#integration)
+[![Platform](https://img.shields.io/badge/platform-linux%20|%20windows%20|%20macos-lightgrey.svg)](https://github.com/dasmig/nickname-generator)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://dasmig.github.io/nickname-generator/)
+
+**[API Reference](https://dasmig.github.io/nickname-generator/)** · **[Usage Guide](doc/usage.md)** · **[Releases](https://github.com/dasmig/nickname-generator/releases)**
 
 ## Features
 
@@ -50,14 +58,17 @@ When requesting a nickname for the first time the library will attempt to load t
 using nng = dasmig::nng;
 
 // Manually load the resources folder if necessary.
-nng::instance().load("path//containing//words");
+nng::instance().load("path/to/resources");
 
+// Generate a nickname based on a player name.
 std::wstring github_nickname = nng::instance().get_nickname(L"Kind Github User");
 
+// Generate a random nickname from the loaded word lists.
 std::wstring random_nickname = nng::instance().get_nickname();
 
+// Access the original source string.
+auto nick = nng::instance().get_nickname(L"Jane Doe");
+std::wcout << nick.plain() << L" -> " << nick << std::endl;
 ```
 
-### Disclaimer
-
-This README was heavily inspired by ['nlhomann/json'](https://github.com/nlohmann/json).
+For the complete feature guide — transforms, word lists, thread safety, and more — see the **[Usage Guide](doc/usage.md)**.

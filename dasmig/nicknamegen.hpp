@@ -1,3 +1,6 @@
+#ifndef DASMIG_NICKNAMEGEN_HPP
+#define DASMIG_NICKNAMEGEN_HPP
+
 #include "random.hpp"
 #include <algorithm>
 #include <cmath>
@@ -13,29 +16,38 @@
 #include <utility>
 #include <vector>
 
-// Written by Diego Dasso Migotto - diegomigotto at hotmail dot com
+/// @file nicknamegen.hpp
+/// @brief Nickname generator library — gamer-style nickname generation for C++23.
+/// @author Diego Dasso Migotto (diegomigotto at hotmail dot com)
+/// @see See doc/usage.md for the narrative tutorial.
 namespace dasmig
 {
 
-// Internal class used by nickname generator to allow for chained calls when
-// building a nickname.
+/// @brief Return type for nickname generation, holding both the transformed
+/// and original strings.
+///
+/// Supports implicit conversion to std::wstring and streaming via operator<<.
 class nickname
 {
   public:
-    // Return original word used as source for the nickname, or name that
-    // originated it.
+    /// @brief Return the original word or name used to generate this nickname.
+    /// @return Original source string before any transforms.
     [[nodiscard]] std::wstring plain() const
     {
         return _original_string;
     }
 
-    // Operator wstring to allow for implicit conversion to string.
+    /// @brief Implicit conversion to std::wstring.
+    /// @return The transformed nickname string.
     operator std::wstring() const // NOLINT(hicpp-explicit-conversions)
     {
         return _internal_string;
     }
 
-    // Operator ostream streaming internal string.
+    /// @brief Stream the nickname to a wide output stream.
+    /// @param wos Output stream.
+    /// @param nickname Nickname to stream.
+    /// @return Reference to the output stream.
     friend std::wostream& operator<<(std::wostream& wos,
                                      const nickname& nickname)
     {
@@ -44,30 +56,32 @@ class nickname
     }
 
   private:
-    // Private constructor, this is mostly a helper class to the nickname
-    // generator, not the intended API.
+    /// @brief Private constructor — nicknames are created only by nng.
+    /// @param nickname_str The transformed nickname text.
+    /// @param original_str The original source text.
     nickname(std::wstring nickname_str, std::wstring original_str)
         : _internal_string(std::move(nickname_str)),
           _original_string(std::move(original_str))
     {
     }
 
-    // Current nickname after all modifications/formatting.
-    std::wstring _internal_string;
+    std::wstring _internal_string; ///< Current nickname after transforms.
 
-    // Original string used to generated the nickname.
-    std::wstring _original_string;
+    std::wstring _original_string; ///< Original source string.
 
-    // Allows nickname generator to construct nicknames.
-    friend class nng;
+    friend class nng; ///< Allows nng to construct nicknames.
 };
 
-// The nickname generator generates as realistic as possible gamers nicknames
-// akin to professional players, allowing requests specifying the player name.
-//
-// Thread safety: the singleton instance() is safe. However, load() mutates
-// internal state and must not be called concurrently with get_nickname().
-// Call load() once before starting concurrent generation.
+/// @brief Singleton nickname generator that produces gamer-style nicknames.
+///
+/// Generates realistic gamer nicknames akin to professional players, optionally
+/// based on a player's real name. Applies random "leetifying" transforms and
+/// case formatting for variety.
+///
+/// @par Thread safety
+/// The singleton instance() is safe for concurrent access. However, load()
+/// mutates internal state and must not be called concurrently with
+/// get_nickname(). Call load() once before starting concurrent generation.
 class nng
 {
   public:
@@ -78,21 +92,30 @@ class nng
     nng& operator=(const nng&) = delete;
     nng& operator=(nng&&) = delete;
 
-    // Thread safe access to nickname generator singleton.
+    /// @brief Thread-safe access to the nickname generator singleton.
+    /// @return Reference to the global nng instance.
     static nng& instance()
     {
         static nng instance;
         return instance;
     }
 
-    // Generates a nickname based on requested name(optional).
+    /// @brief Generate a nickname, optionally based on a name.
+    /// @param name Optional full name to base the nickname on. If empty, a
+    ///        random word from the loaded word lists is used instead.
+    /// @return A nickname object with both transformed and original strings.
+    /// @throws std::invalid_argument If name is empty and no word lists loaded.
     [[nodiscard]] nickname get_nickname(const std::wstring& name = L"") const
     {
         return solver(name);
     };
 
-    // Try loading every possible wordlists file from the received resource
-    // path.
+    /// @brief Load word list files from a directory.
+    ///
+    /// Recursively scans @p resource_path for `.words` files and indexes them.
+    /// Safe to call multiple times to add from different directories.
+    ///
+    /// @param resource_path Directory containing `.words` files.
     void load(const std::filesystem::path& resource_path)
     {
         if (std::filesystem::exists(resource_path) &&
@@ -814,3 +837,5 @@ class nng
     }
 };
 } // namespace dasmig
+
+#endif // DASMIG_NICKNAMEGEN_HPP
