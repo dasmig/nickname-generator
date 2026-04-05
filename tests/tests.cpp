@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <cwctype>
+#include <filesystem>
 #include <ranges>
 #include <string>
 #include <vector>
@@ -157,6 +158,22 @@ struct nng_test_access
 };
 
 // ---------------------------------------------------------------------------
+// Helper: locate the resources directory (works from repo root or build/)
+// ---------------------------------------------------------------------------
+static std::filesystem::path resource_path()
+{
+    for (const auto& candidate : {"resources", "../resources"})
+    {
+        std::filesystem::path p{candidate};
+        if (std::filesystem::exists(p) && std::filesystem::is_directory(p))
+        {
+            return p;
+        }
+    }
+    return "resources"; // fallback
+}
+
+// ---------------------------------------------------------------------------
 // Helper: access the singleton with resources pre-loaded
 // ---------------------------------------------------------------------------
 static dasmig::nng& gen()
@@ -164,8 +181,7 @@ static dasmig::nng& gen()
     static bool loaded = false;
     if (!loaded)
     {
-        // Ensure resources are loaded from the known location.
-        dasmig::nng::instance().load("resources");
+        dasmig::nng::instance().load(resource_path());
         loaded = true;
     }
     return dasmig::nng::instance();
@@ -865,7 +881,7 @@ TEST_CASE("independent instance can load and generate", "[nng][multi-instance]")
     dasmig::nng gen2;
     REQUIRE_FALSE(gen2.has_wordlists());
 
-    gen2.load("resources");
+    gen2.load(resource_path());
     REQUIRE(gen2.has_wordlists());
 
     auto nick = gen2.get_nickname(L"Multi Instance");
@@ -878,7 +894,7 @@ TEST_CASE("independent instances have separate word lists",
     dasmig::nng a;
     dasmig::nng b;
 
-    a.load("resources");
+    a.load(resource_path());
     REQUIRE(a.has_wordlists());
     REQUIRE_FALSE(b.has_wordlists());
 }
@@ -888,8 +904,8 @@ TEST_CASE("independent instances have separate seeding",
 {
     dasmig::nng a;
     dasmig::nng b;
-    a.load("resources");
-    b.load("resources");
+    a.load(resource_path());
+    b.load(resource_path());
 
     constexpr std::uint64_t seed_a = 111;
     constexpr std::uint64_t seed_b = 222;
@@ -914,7 +930,7 @@ TEST_CASE("independent instances have separate seeding",
 TEST_CASE("moved instance retains state", "[nng][multi-instance]")
 {
     dasmig::nng src;
-    src.load("resources");
+    src.load(resource_path());
     src.seed(42);
     auto expected = static_cast<std::wstring>(src.get_nickname(L"Move Test"));
 
@@ -973,7 +989,7 @@ TEST_CASE("leetify does not stack-overflow on unmappable input",
     // "M" (single consonant, no leet map entry) previously caused infinite
     // recursion. Now capped at max depth.
     dasmig::nng g;
-    g.load("resources");
+    g.load(resource_path());
     g.seed(1);
     for (int i = 0; i < 20; ++i)
     {
