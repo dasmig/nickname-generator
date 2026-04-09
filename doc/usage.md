@@ -100,7 +100,7 @@ One of these transforms is randomly applied (50 % chance):
 | reverse | `emankcin` |
 | duovowel | `nicknamee` |
 | oneleet | `n1ckname` |
-| allleet | `n1ckn4m3` |
+| allleet | `n1cknam3` |
 | xfy | `XnicknameX` |
 | yfy | `nicknamy` |
 | numify | `nickname2000` |

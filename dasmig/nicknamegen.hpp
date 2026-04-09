@@ -441,22 +441,36 @@ class nng
         return leet_nickname;
     }
 
-    // Replaces as much letters as possible in the nickname by numerical
-    // characters.
-    static std::wstring allleet(
-        const std::wstring& nickname,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    // Replaces up to two random letters in the nickname by their numerical
+    // leet-speak equivalents.
+    static std::wstring allleet(const std::wstring& nickname,
+                                 effolkronium::random_local& engine)
     {
         // Nickname leetified.
         std::wstring leet_nickname{nickname};
 
-        // Replace all possible characters.
-        for (auto& character : leet_nickname)
+        // Maximum number of characters to replace.
+        static constexpr std::size_t max_replacements{2};
+
+        // Collect indices of leet-mappable characters.
+        std::vector<std::size_t> candidate_positions;
+
+        for (std::size_t i = 0; i < leet_nickname.size(); ++i)
         {
-            if (_leet_map.contains(character))
+            if (_leet_map.contains(leet_nickname[i]))
             {
-                character = _leet_map.at(character);
+                candidate_positions.push_back(i);
             }
+        }
+
+        // Shuffle and replace up to max_replacements positions.
+        engine.shuffle(candidate_positions);
+
+        for (std::size_t n = 0;
+             n < std::min(max_replacements, candidate_positions.size()); ++n)
+        {
+            auto pos = candidate_positions[n];
+            leet_nickname[pos] = _leet_map.at(leet_nickname[pos]);
         }
 
         return leet_nickname;
