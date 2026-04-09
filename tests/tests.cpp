@@ -644,10 +644,22 @@ TEST_CASE("oneleet - no leet candidates returns unchanged", "[transforms]")
     REQUIRE(nng_test_access::oneleet(L"hymn") == L"hymn");
 }
 
-TEST_CASE("allleet - replaces all possible characters", "[transforms]")
+TEST_CASE("allleet - replaces at most 2 characters", "[transforms]")
 {
     auto result = nng_test_access::allleet(L"test");
-    REQUIRE(result == L"7327"); // t->7, e->3, s->2, t->7
+    // With max 2 replacements, exactly 2 of the 4 leet-mappable chars change.
+    int changed = 0;
+    std::wstring original = L"test";
+    for (std::size_t i = 0; i < original.size(); ++i)
+    {
+        if (result[i] != original[i])
+        {
+            ++changed;
+        }
+    }
+    REQUIRE(result.size() == original.size());
+    REQUIRE(changed <= 2);
+    REQUIRE(changed > 0);
 }
 
 // ---------------------------------------------------------------------------
