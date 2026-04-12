@@ -94,3 +94,14 @@ std::wstring nick2 = my_gen.get_nickname(L"Own Instance");
 ```
 
 For the complete feature guide — transforms, word lists, thread safety, and more — see the **[Usage Guide](doc/usage.md)**.
+
+## Related Libraries
+
+| Library | Description |
+|---------|-------------|
+| [name-generator](https://github.com/dasmig/name-generator) | Culturally appropriate full names |
+| [birth-generator](https://github.com/dasmig/birth-generator) | Demographically plausible birthdays |
+| [biodata-generator](https://github.com/dasmig/biodata-generator) | Procedural human physical characteristics |
+| [city-generator](https://github.com/dasmig/city-generator) | Weighted city selection by population |
+| [country-generator](https://github.com/dasmig/country-generator) | Weighted country selection by population |
+| [entity-generator](https://github.com/dasmig/entity-generator) | ECS-based entity generation |
