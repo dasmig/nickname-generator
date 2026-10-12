@@ -38,7 +38,7 @@ int main()
 
 ## Installation
 
-1. Copy `dasmig/nicknamegen.hpp` and `dasmig/random.hpp` into your include path.
+1. Copy `dasmig/nicknamegen.hpp`, `dasmig/core.hpp` and the `dasmig/core/` directory into your include path, keeping them side by side.
 2. Copy the `resources/` folder (containing `.words` files) so it is accessible at runtime.
 3. Compile with C++23 enabled: `-std=c++23`.
 
@@ -128,7 +128,7 @@ There is also a 1 % chance of `snake_case` being applied first (`Nick_Name`).
 
 ## Word Lists
 
-The library ships three word lists in `resources/`:
+The library ships three word lists in `resources/lite/` (see [Data and Method](data.md)):
 
 | File | Contents |
 |------|----------|

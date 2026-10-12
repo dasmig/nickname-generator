@@ -1,27 +1,33 @@
 #ifndef DASMIG_NICKNAMEGEN_HPP
 #define DASMIG_NICKNAMEGEN_HPP
 
-#include "random.hpp"
+#include "core.hpp"
 #include <algorithm>
-#include <cmath>
+#include <array>
 #include <cstddef>
 #include <cstdint>
-#include <cwctype>
 #include <filesystem>
-#include <fstream>
-#include <iostream>
 #include <map>
-#include <random>
-#include <ranges>
+#include <optional>
+#include <ostream>
+#include <span>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <system_error>
 #include <utility>
 #include <vector>
+
+#ifdef DASMIG_NICKNAME_EMBED
+#include "nicknamegen_data.hpp"
+#endif
 
 /// @file nicknamegen.hpp
 /// @brief Nickname generator library — gamer-style nickname generation for C++23.
 /// @author Diego Dasso Migotto (diegomigotto at hotmail dot com)
 /// @see See doc/usage.md for the narrative tutorial.
+
+DASMIG_CORE_REQUIRE(0, 3);
 
 struct nng_test_access;
 
@@ -29,9 +35,10 @@ namespace dasmig
 {
 
 /// @brief Return type for nickname generation, holding both the transformed
-/// and original strings.
+///        nickname and the original source string.
 ///
-/// Supports implicit conversion to std::wstring and streaming via operator<<.
+/// Supports implicit conversion to std::wstring, streaming via operator<<
+/// and JSON output via to_json().
 class nickname
 {
   public:
@@ -47,7 +54,37 @@ class nickname
     /// @see nng::get_nickname(const std::wstring&, std::uint64_t)
     [[nodiscard]] std::uint64_t seed() const
     {
-        return _seed;
+        return _signature.seed;
+    }
+
+    /// @brief The seed and the data this nickname was generated from.
+    /// @return The replay signature; `data` is nng::data_hash() at the time
+    ///         of generation.
+    [[nodiscard]] const core::seed_signature& signature() const
+    {
+        return _signature;
+    }
+
+    /// @brief Write this nickname as a JSON object
+    ///        `{"nickname":…,"source":…,"signature":{…}}`.
+    /// @param w Writer positioned where a value is allowed.
+    void to_json(core::json_writer& w) const
+    {
+        w.begin_object()
+            .field("nickname", core::to_utf8(_internal_string))
+            .field("source", core::to_utf8(_original_string))
+            .key("signature");
+        _signature.to_json(w);
+        w.end_object();
+    }
+
+    /// @brief This nickname as a JSON document.
+    /// @return Compact JSON.
+    [[nodiscard]] std::string to_json() const
+    {
+        core::json_writer w;
+        to_json(w);
+        return w.str();
     }
 
     /// @brief Implicit conversion to std::wstring.
@@ -72,57 +109,51 @@ class nickname
     /// @brief Private constructor — nicknames are created only by nng.
     /// @param nickname_str The transformed nickname text.
     /// @param original_str The original source text.
-    nickname(std::wstring nickname_str, std::wstring original_str,
-             std::uint64_t seed = 0)
+    nickname(std::wstring nickname_str, std::wstring original_str)
         : _internal_string(std::move(nickname_str)),
-          _original_string(std::move(original_str)),
-          _seed(seed)
+          _original_string(std::move(original_str))
     {
     }
 
     std::wstring _internal_string; ///< Current nickname after transforms.
-
     std::wstring _original_string; ///< Original source string.
-
-    std::uint64_t _seed{0}; ///< Random seed used to generate this nickname.
+    core::seed_signature _signature; ///< Seed and data hash.
 
     friend class nng; ///< Allows nng to construct nicknames.
 };
 
 /// @brief Nickname generator that produces gamer-style nicknames.
 ///
-/// Generates realistic gamer nicknames akin to professional players, optionally
-/// based on a player's real name. Applies random "leetifying" transforms and
-/// case formatting for variety.
+/// Generates nicknames either from a person's name (first name, initials,
+/// mixed parts, ...) or from word lists, then decorates them (leet speak,
+/// suffixes, reversal, ...) and formats their case.
+///
+/// Output is identical on every compiler and platform (dasmig-core): the
+/// case changes use a fixed mapping rather than the C locale, and word
+/// lists are read as UTF-8 in name order.
 ///
 /// Can be used as a singleton via instance() or constructed independently.
-/// Independent instances own their own word lists and random engine,
-/// making them safe for concurrent use without shared state.
 ///
 /// @par Thread safety
-/// Each instance is independent. Concurrent calls to get_nickname() on
-/// the **same** instance require external synchronization. load() mutates
-/// internal state and must not be called concurrently with get_nickname()
-/// on the same instance.
+/// Each instance is independent. Concurrent calls to get_nickname() on the
+/// **same** instance require external synchronisation.
 class nng
 {
   public:
-    /// @brief Default constructor — creates an empty generator with no word lists.
-    ///
-    /// Call load() to populate word lists before generating nicknames.
+    /// @brief Default constructor — creates an empty generator with no word
+    ///        lists.
     nng() = default;
 
     nng(const nng&) = delete;            ///< Not copyable.
     nng& operator=(const nng&) = delete; ///< Not copyable.
-    nng(nng&&) = default;                ///< Move constructor.
-    nng& operator=(nng&&) = default;     ///< Move assignment.
+    nng(nng&&) noexcept = default;       ///< Move constructor.
+    nng& operator=(nng&&) noexcept = default; ///< Move assignment.
     ~nng() = default;                    ///< Default destructor.
 
     /// @brief Access the global singleton instance.
     ///
-    /// The singleton auto-probes common resource paths on first access.
-    /// For independent generators (e.g., inside an entity-generator component),
-    /// prefer constructing a separate nng instance.
+    /// Loads the shipped word lists on first access, from compiled-in data
+    /// or an auto-probed `resources/`.
     /// @return Reference to the global nng instance.
     static nng& instance()
     {
@@ -130,52 +161,38 @@ class nng
         return inst;
     }
 
-    /// @brief Generate a nickname, optionally based on a name.
-    /// @param name Optional full name to base the nickname on. If empty, a
-    ///        random word from the loaded word lists is used instead.
-    /// @return A nickname object with both transformed and original strings.
-    /// @throws std::invalid_argument If name is empty and no word lists loaded.
+    /// @brief Generate a random nickname, optionally based on a name.
+    ///
+    /// With a name, one in four nicknames is derived from it (always, when
+    /// no word lists are loaded); the others come from the word lists.
+    ///
+    /// @param name Full name such as L"Alberto Bins Elis" (may be empty).
+    /// @return The generated nickname.
+    /// @throws std::invalid_argument If @p name is empty and no word lists
+    ///         are loaded.
     [[nodiscard]] nickname get_nickname(const std::wstring& name = L"")
     {
-        auto call_seed = static_cast<std::uint64_t>(_engine());
-        effolkronium::random_local call_engine;
-        call_engine.seed(static_cast<std::mt19937::result_type>(
-            (call_seed ^ (call_seed >> 32U))));
-        auto result = solver(name, call_engine);
-        result._seed = call_seed;
-        return result;
+        return get_nickname(name, _engine());
     }
 
-    /// @brief Generate a deterministic nickname using a specific seed.
-    ///
-    /// Given the same name and seed, this method always produces the same
-    /// nickname. Retrieve the seed from a previous nickname via
-    /// nickname::seed().
-    ///
-    /// @param name Full name to base the nickname on (may be empty).
-    /// @param call_seed Seed for reproducible results.
-    /// @return A nickname object with both transformed and original strings.
-    /// @throws std::invalid_argument If name is empty and no word lists loaded.
+    /// @brief Generate a deterministic nickname.
+    /// @param name Full name (may be empty).
+    /// @param call_seed Seed; the same seed, name and word lists give the
+    ///        same nickname.
+    /// @return The generated nickname.
+    /// @throws std::invalid_argument If @p name is empty and no word lists
+    ///         are loaded.
     [[nodiscard]] nickname get_nickname(const std::wstring& name,
                                         std::uint64_t call_seed) const
     {
-        effolkronium::random_local call_engine;
-        call_engine.seed(static_cast<std::mt19937::result_type>(
-            (call_seed ^ (call_seed >> 32U))));
-        auto result = solver(name, call_engine);
-        result._seed = call_seed;
+        auto r = core::rng{call_seed}.split("nickname");
+        auto result = solver(name, r);
+        result._signature = {.seed = call_seed, .data = data_hash()};
         return result;
     }
 
-    /// @name Seeding
-    /// @{
-
     /// @brief Seed the internal random engine for deterministic sequences.
-    ///
-    /// Subsequent get_nickname() calls (without an explicit seed) draw
-    /// per-call seeds from this engine, producing a reproducible sequence.
-    ///
-    /// @param seed_value The seed value.
+    /// @param seed_value Seed.
     /// @return `*this` for chaining.
     nng& seed(std::uint64_t seed_value)
     {
@@ -184,62 +201,176 @@ class nng
     }
 
     /// @brief Reseed the engine with a non-deterministic source.
-    ///
-    /// Subsequent get_nickname() calls will produce non-reproducible results.
     /// @return `*this` for chaining.
     nng& unseed()
     {
-        _engine.seed(std::random_device{}());
+        _engine.unseed();
         return *this;
     }
 
-    /// @}
-
-    /// @brief Check whether any word lists have been loaded.
-    /// @return `true` if at least one word list is available.
+    /// @brief Check whether any word list is loaded.
+    /// @return True when at least one non-empty word list is loaded.
     [[nodiscard]] bool has_wordlists() const
     {
         return !_wordlists.empty();
     }
 
-    /// @brief Load word list files from a directory.
+    /// @brief Load word lists from a directory, replacing all lists and
+    ///        layers loaded before.
     ///
-    /// Recursively scans @p resource_path for `.words` files and indexes them.
-    /// Safe to call multiple times to add from different directories.
+    /// Reads every `.words` file (one word per line) and `.tsv` file (a
+    /// `word` column) below the directory, in path order. The list name is
+    /// the file name without extension; files with the same name extend the
+    /// same list. A path that is not a directory is ignored.
     ///
-    /// @param resource_path Directory containing `.words` files.
+    /// @param resource_path Directory such as `resources/lite`.
+    /// @throws core::tsv_error If a file is malformed; the lists are then
+    ///         unchanged.
     void load(const std::filesystem::path& resource_path)
     {
-        if (std::filesystem::exists(resource_path) &&
-            std::filesystem::is_directory(resource_path))
+        std::error_code ec;
+        if (!std::filesystem::is_directory(resource_path, ec)) return;
+        apply_(read_directory_(resource_path), core::layer_mode::replace, true);
+    }
+
+    /// @brief Load the shipped word lists, replacing all lists and layers
+    ///        loaded before.
+    ///
+    /// The library ships one tier: `dataset::full` loads the same lists as
+    /// `dataset::lite`. Uses the compiled-in copy when built with
+    /// `DASMIG_NICKNAME_EMBED`, otherwise searches `resources/`,
+    /// `../resources`, `nickname-generator/resources` and
+    /// `../nickname-generator/resources`.
+    ///
+    /// @param tier Ignored (one tier).
+    /// @return False when no word list was found.
+    /// @throws core::tsv_error If a file is malformed.
+    [[nodiscard]] bool load([[maybe_unused]] dataset tier)
+    {
+        std::vector<std::pair<std::string, core::tsv_document>> docs;
+        const auto root = core::find_resources(library_name_, std::string{shipped_tier_} + "/" +
+                                                                  std::string{marker_list_} + ".words");
+        for (const auto list : shipped_lists_)
         {
-            for (const auto& entry :
-                 std::filesystem::recursive_directory_iterator(resource_path))
+            const auto path = std::string{shipped_tier_} + "/" + std::string{list} + ".words";
+            if (auto doc = core::load_resource(path, embedded_files_(), root, {"word"}))
             {
-                if (entry.is_regular_file() &&
-                    (entry.path().extension() == ".words"))
-                {
-                    parse_file(entry);
-                }
+                docs.emplace_back(std::string{list}, std::move(*doc));
             }
-        };
+        }
+        if (docs.empty()) return false;
+        apply_(std::move(docs), core::layer_mode::replace, true);
+        return true;
+    }
+
+    /// @brief Add word list layers from a directory or a file.
+    ///
+    /// A directory is read like load() and all its files are applied
+    /// together, or none if any is invalid. A `.words` file has one word
+    /// per line; a `.tsv` file has a `word` column and may have `disabled`
+    /// to remove words. The list name is the file name without extension;
+    /// a new name adds a list.
+    ///
+    /// @param path Directory or file.
+    /// @param mode How the layers combine with the words loaded before.
+    /// @throws core::tsv_error If a file cannot be read or is invalid; the
+    ///         lists are then unchanged.
+    /// @throws std::invalid_argument If @p path is a file that is neither
+    ///         `.words` nor `.tsv`.
+    void extend(const std::filesystem::path& path,
+                core::layer_mode mode = core::layer_mode::override)
+    {
+        std::error_code ec;
+        if (std::filesystem::is_directory(path, ec))
+        {
+            apply_(read_directory_(path), mode, false);
+            return;
+        }
+        auto doc = read_file_(path);
+        if (!doc)
+        {
+            throw std::invalid_argument("extend: expected a .words or .tsv file, got " +
+                                        path.filename().string());
+        }
+        std::vector<std::pair<std::string, core::tsv_document>> docs;
+        docs.emplace_back(core::to_utf8(path.stem().wstring()), std::move(*doc));
+        apply_(std::move(docs), mode, false);
+    }
+
+    /// @brief Add a layer to a word list from TSV text with a `word`
+    ///        column (and optionally `disabled`).
+    /// @param list Name of the list (a new name adds a list).
+    /// @param text TSV text.
+    /// @param source Name used in errors.
+    /// @param mode How the layer combines with the words loaded before.
+    /// @return What the layer did.
+    /// @throws core::tsv_error If the text is invalid; the lists are
+    ///         unchanged.
+    const core::layer_info& extend_from_string(std::string_view list, std::string_view text,
+                                               std::string source,
+                                               core::layer_mode mode = core::layer_mode::override)
+    {
+        std::vector<std::pair<std::string, core::tsv_document>> docs;
+        docs.emplace_back(std::string{list}, core::tsv_document::parse(text, std::move(source)));
+        apply_(std::move(docs), mode, false);
+        return _lists.at(std::string{list}).layers().back();
+    }
+
+    /// @brief Names of the loaded word lists, in the order they are used.
+    /// @return The list names (UTF-8).
+    [[nodiscard]] std::vector<std::string> list_names() const
+    {
+        std::vector<std::string> names;
+        for (const auto& [name, table] : _lists)
+        {
+            if (!table.empty()) names.push_back(name);
+        }
+        return names;
+    }
+
+    /// @brief The layers in effect for one word list.
+    /// @param list The list name.
+    /// @return The layer records.
+    /// @throws std::out_of_range If there is no such list.
+    [[nodiscard]] const std::vector<core::layer_info>& layers(const std::string& list) const
+    {
+        return _lists.at(list).layers();
+    }
+
+    /// @brief Hash of the loaded word lists, recorded in each result's
+    ///        signature().
+    /// @return The hash; 0 when nothing is loaded.
+    [[nodiscard]] std::uint64_t data_hash() const
+    {
+        std::uint64_t h = 0;
+        for (const auto& [name, table] : _lists)
+        {
+            h = core::hash_combine(core::hash_combine(h, core::fnv1a64(name)), table.data_hash());
+        }
+        return h;
     }
 
   private:
-    // Container of words.
-    using word_container = std::vector<std::wstring>;
+    static constexpr std::string_view library_name_ = "nickname-generator";
+    static constexpr std::string_view shipped_tier_ = "lite";
+    static constexpr std::string_view marker_list_ = "animals";
+    static constexpr std::array<std::string_view, 3> shipped_lists_{"adjectives", "animals",
+                                                                     "japanese"};
 
     // Function pointer type for nickname transform methods.
-    using generator_fn = std::wstring (*)(const std::wstring&,
-                                          effolkronium::random_local&);
+    using generator_fn = std::wstring (*)(const std::wstring&, core::rng&);
 
     // Container of methods used to modify the nickname.
     using generators = std::vector<generator_fn>;
 
-    // Contains all vowel characters.
+    // Characters treated as vowels (escaped so the source encoding does not
+    // matter): aeiou, then á à â ã ä å æ ç è é ê ë ì í î ï ð ñ ò ó ô õ ö ø
+    // š ù ú û ü ý ÿ.
     // NOLINTNEXTLINE(bugprone-throwing-static-initialization)
     static const inline std::wstring _vowels{
-        L"aeiouáàâãäåæçèéêëìíîïðñòóôõöøšùúûüýÿ"};
+        L"aeiouáàâãäåæçèéêë"
+        L"ìíîïðñòóôõöø"
+        L"šùúûüýÿ"};
 
     // Maps letters to their leet-speak digit equivalents.
     // NOLINTNEXTLINE(bugprone-throwing-static-initialization)
@@ -249,39 +380,148 @@ class nng
         {L'g', L'6'}, {L'G', L'6'}, {L't', L'7'}, {L'T', L'7'}, {L'b', L'8'},
         {L'B', L'8'}, {L'q', L'9'}, {L'Q', L'9'}};
 
-    // Vector for randomly accessing wordlists.
-    std::vector<word_container> _wordlists;
-
-    // Per-instance random engine for seed drawing.
-    std::mt19937_64 _engine{std::random_device{}()};
-
-    // Tag type for the auto-probing singleton constructor.
-    struct auto_probe_tag {};
-
-    // Singleton constructor: auto-probes common resource locations.
-    explicit nng(auto_probe_tag /*tag*/)
+    static core::table_schema schema_()
     {
-        for (const auto& candidate : {"resources", "../resources",
-                                       "nickname-generator/resources"})
-        {
-            const std::filesystem::path p{candidate};
-            if (std::filesystem::exists(p) && std::filesystem::is_directory(p))
-            {
-                load(p);
-                break;
-            }
-        }
+        return {.key = {"word"}, .required = {}, .optional = {}};
     }
 
-    // Add an x to either the front or back of the nickname - or both.
-    static std::wstring xfy(const std::wstring& nickname,
-                             effolkronium::random_local& engine)
-    {
-        // Xfied nickname.
-        std::wstring x_nickname{nickname};
+    // Word lists by name (sorted, so the order does not depend on the
+    // filesystem), and the words in use, rebuilt after every change.
+    std::map<std::string, core::layered_table, std::less<>> _lists;
+    std::vector<std::vector<std::wstring>> _wordlists;
 
-        // Distribution of possible xy, yx, xyx probability.
-        switch (engine.get(0, 2))
+    core::rng _engine{core::rng::from_entropy()};
+
+    struct auto_probe_tag {};
+
+    explicit nng(auto_probe_tag /*tag*/)
+    {
+        (void)load(dataset::lite);
+    }
+
+    static std::span<const core::embedded_file> embedded_files_()
+    {
+#ifdef DASMIG_NICKNAME_EMBED
+        return embedded::nicknamegen::files;
+#else
+        return {};
+#endif
+    }
+
+    // -- Data ---------------------------------------------------------------
+
+    static std::optional<core::tsv_document> read_file_(const std::filesystem::path& file)
+    {
+        const auto ext = file.extension();
+        if (ext == ".words") return core::tsv_document::load(file, {"word"});
+        if (ext == ".tsv") return core::tsv_document::load(file);
+        return std::nullopt;
+    }
+
+    static std::vector<std::pair<std::string, core::tsv_document>> read_directory_(
+        const std::filesystem::path& dir)
+    {
+        std::vector<std::filesystem::path> files;
+        for (const auto& entry : std::filesystem::recursive_directory_iterator(dir))
+        {
+            if (entry.is_regular_file() &&
+                (entry.path().extension() == ".words" || entry.path().extension() == ".tsv"))
+            {
+                files.push_back(entry.path());
+            }
+        }
+        std::ranges::sort(files); // the iteration order is unspecified
+        std::vector<std::pair<std::string, core::tsv_document>> docs;
+        for (const auto& file : files)
+        {
+            docs.emplace_back(core::to_utf8(file.stem().wstring()), *read_file_(file));
+        }
+        return docs;
+    }
+
+    // Apply layers to copies of the lists, then commit: all or nothing.
+    // With @p reset (load), lists not in @p docs are dropped.
+    void apply_(std::vector<std::pair<std::string, core::tsv_document>> docs, core::layer_mode mode,
+                bool reset)
+    {
+        auto next = reset ? decltype(_lists){} : _lists;
+        // On reset each list's first file replaces; later files with the
+        // same name extend it.
+        std::map<std::string, bool, std::less<>> started;
+        for (auto& [name, doc] : docs)
+        {
+            auto it = next.try_emplace(name, schema_()).first;
+            const auto list_mode = reset && !started[name] ? core::layer_mode::replace
+                                   : reset               ? core::layer_mode::override
+                                                         : mode;
+            started[name] = true;
+            (void)it->second.extend(std::move(doc), list_mode, [](const core::tsv_row& row) {
+                (void)core::from_utf8(row["word"]);
+            });
+        }
+        std::vector<std::vector<std::wstring>> wordlists;
+        for (const auto& [name, table] : next)
+        {
+            std::vector<std::wstring> words;
+            words.reserve(table.size());
+            for (const auto& row : table.rows()) words.push_back(core::from_utf8(row["word"]));
+            if (!words.empty()) wordlists.push_back(std::move(words));
+        }
+        _lists = std::move(next);
+        _wordlists = std::move(wordlists);
+    }
+
+    // -- Case mapping -----------------------------------------------------
+    //
+    // A fixed mapping for Basic Latin, Latin-1 Supplement and Latin
+    // Extended-A, so the result does not depend on the C locale. Other
+    // characters are left as they are.
+
+    static wchar_t to_upper_(wchar_t c)
+    {
+        const auto u = static_cast<std::uint32_t>(c);
+        if (u >= 0x61U && u <= 0x7AU) return static_cast<wchar_t>(u - 0x20U);
+        if (u >= 0xE0U && u <= 0xFEU && u != 0xF7U) return static_cast<wchar_t>(u - 0x20U);
+        if (u == 0xFFU) return static_cast<wchar_t>(0x178U);
+        if ((u >= 0x100U && u <= 0x12FU) || (u >= 0x132U && u <= 0x137U) ||
+            (u >= 0x14AU && u <= 0x177U))
+        {
+            return static_cast<wchar_t>(u & ~1U); // pairs: upper even, lower odd
+        }
+        if ((u >= 0x139U && u <= 0x148U) || (u >= 0x179U && u <= 0x17EU))
+        {
+            return (u % 2U == 0U) ? static_cast<wchar_t>(u - 1U) : c; // upper odd, lower even
+        }
+        return c;
+    }
+
+    static wchar_t to_lower_(wchar_t c)
+    {
+        const auto u = static_cast<std::uint32_t>(c);
+        if (u >= 0x41U && u <= 0x5AU) return static_cast<wchar_t>(u + 0x20U);
+        if (u >= 0xC0U && u <= 0xDEU && u != 0xD7U) return static_cast<wchar_t>(u + 0x20U);
+        if (u == 0x178U) return static_cast<wchar_t>(0xFFU);
+        if ((u >= 0x100U && u <= 0x12FU) || (u >= 0x132U && u <= 0x137U) ||
+            (u >= 0x14AU && u <= 0x177U))
+        {
+            return static_cast<wchar_t>(u | 1U);
+        }
+        if ((u >= 0x139U && u <= 0x148U) || (u >= 0x179U && u <= 0x17EU))
+        {
+            return (u % 2U == 1U) ? static_cast<wchar_t>(u + 1U) : c;
+        }
+        return c;
+    }
+
+    static bool is_upper_(wchar_t c) { return to_lower_(c) != c; }
+
+    // -- Decorations --------------------------------------------------------
+
+    // Add an x to either the front or back of the nickname - or both.
+    static std::wstring xfy(const std::wstring& nickname, core::rng& engine)
+    {
+        std::wstring x_nickname{nickname};
+        switch (core::uniform_int(engine, 0, 2))
         {
         case 0:
             x_nickname.push_back(L'X');
@@ -294,32 +534,24 @@ class nng
             x_nickname.insert(0, 1, L'X');
             break;
         }
-
         return x_nickname;
     }
 
     // Writes the nickname backwards such as emankcin.
-    static std::wstring reverse(
-        const std::wstring& nickname,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring reverse(const std::wstring& nickname,
+                                [[maybe_unused]] core::rng& engine)
     {
-        // Original nickname reversed.
         std::wstring reverse_nickname{nickname};
-
         std::ranges::reverse(reverse_nickname);
-
         return reverse_nickname;
     }
 
     // Adds an y to the end of nickname or replace the last character if it's a
     // vowel.
-    static std::wstring yfy(
-        const std::wstring& nickname,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring yfy(const std::wstring& nickname,
+                            [[maybe_unused]] core::rng& engine)
     {
-        // Nickname with an y a the end.
         std::wstring nicknamy{nickname};
-
         if (_vowels.contains(nickname.back()))
         {
             nicknamy.back() = L'y';
@@ -328,51 +560,35 @@ class nng
         {
             nicknamy.push_back(L'y');
         }
-
         return nicknamy;
     }
 
     // Adds a number to the end of nickname.
-    static std::wstring numify(const std::wstring& nickname,
-                                effolkronium::random_local& engine)
+    static std::wstring numify(const std::wstring& nickname, core::rng& engine)
     {
-        // Nickname with a number at the end.
         std::wstring nickname_with_number{nickname};
-
-        // Maximum single digit value for numified nicknames.
         static constexpr int max_digit{9};
-
-        // Append a random digit character (1-9).
-        nickname_with_number.push_back(
-            L'0' + engine.get(1, max_digit));
-
-        // Append n zeroes to the end of the nickname.
-        for (auto i = engine.get(0, 3); i > 0;
-             i--)
+        nickname_with_number.push_back(static_cast<wchar_t>(L'0' + core::uniform_int(engine, 1, max_digit)));
+        for (auto i = core::uniform_int(engine, 0, 3); i > 0; i--)
         {
             nickname_with_number.push_back(L'0');
         }
-
         return nickname_with_number;
     }
 
     // Adds a trace to the end of the nickname.
-    static std::wstring tracefy(
-        const std::wstring& nickname,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring tracefy(const std::wstring& nickname,
+                                [[maybe_unused]] core::rng& engine)
     {
         return nickname + L"-";
     }
 
     // Adds an ing to the end of nickname or replace the last character if it's
     // a vowel.
-    static std::wstring ingify(
-        const std::wstring& nickname,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring ingify(const std::wstring& nickname,
+                               [[maybe_unused]] core::rng& engine)
     {
-        // Nickname with an ing a the end.
         std::wstring nicknaming{nickname};
-
         if (_vowels.contains(nickname.back()))
         {
             nicknaming.back() = L'i';
@@ -381,146 +597,102 @@ class nng
         {
             nicknaming.push_back(L'i');
         }
-
         nicknaming.append(L"ng");
-
         return nicknaming;
     }
 
     // Finds an aeio vowel and duplicates it, returns same nickname if no
     // available vowel.
-    static std::wstring duovowel(
-        const std::wstring& nickname,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring duovowel(const std::wstring& nickname,
+                                 [[maybe_unused]] core::rng& engine)
     {
-        static const std::wstring simple_vowels = L"aeio";
-
-        // Nickname with duplicated vowel.
+        static constexpr std::wstring_view simple_vowels = L"aeio";
         std::wstring nicknamee{nickname};
-
-        // Try duplicating each vowel in the nickname, stop after succeeding
-        // once.
         for (const auto& vowel : simple_vowels)
         {
-            if (auto it = std::ranges::find(nicknamee, vowel);
-                it != nicknamee.end())
+            if (auto it = std::ranges::find(nicknamee, vowel); it != nicknamee.end())
             {
                 nicknamee.insert(it, *it);
                 break;
             }
         }
-
         return nicknamee;
     }
 
-    // Replaces a letter by a numerical character.
-    static std::wstring oneleet(const std::wstring& nickname,
-                                 effolkronium::random_local& engine)
+    // Positions of characters that have a leet-speak digit.
+    static std::vector<std::size_t> leet_positions_(const std::wstring& text)
     {
-        // Nickname with leetified letter.
-        std::wstring leet_nickname{nickname};
-
-        // Collect indices of leet-mappable characters.
-        std::vector<std::size_t> candidate_positions;
-
-        for (std::size_t i = 0; i < leet_nickname.size(); ++i)
+        std::vector<std::size_t> positions;
+        for (std::size_t i = 0; i < text.size(); ++i)
         {
-            if (_leet_map.contains(leet_nickname[i]))
-            {
-                candidate_positions.push_back(i);
-            }
+            if (_leet_map.contains(text[i])) positions.push_back(i);
         }
+        return positions;
+    }
 
-        // Pick one position at random and replace it.
-        if (!candidate_positions.empty())
+    // Replaces a letter by a numerical character.
+    static std::wstring oneleet(const std::wstring& nickname, core::rng& engine)
+    {
+        std::wstring leet_nickname{nickname};
+        const auto candidates = leet_positions_(leet_nickname);
+        if (!candidates.empty())
         {
-            auto pos = *engine.get(candidate_positions);
+            const auto pos = core::pick(engine, candidates);
             leet_nickname[pos] = _leet_map.at(leet_nickname[pos]);
         }
-
         return leet_nickname;
     }
 
     // Replaces up to two random letters in the nickname by their numerical
     // leet-speak equivalents.
-    static std::wstring allleet(const std::wstring& nickname,
-                                 effolkronium::random_local& engine)
+    static std::wstring allleet(const std::wstring& nickname, core::rng& engine)
     {
-        // Nickname leetified.
         std::wstring leet_nickname{nickname};
-
-        // Maximum number of characters to replace.
         static constexpr std::size_t max_replacements{2};
-
-        // Collect indices of leet-mappable characters.
-        std::vector<std::size_t> candidate_positions;
-
-        for (std::size_t i = 0; i < leet_nickname.size(); ++i)
+        auto candidates = leet_positions_(leet_nickname);
+        core::shuffle(engine, candidates);
+        for (std::size_t n = 0; n < std::min(max_replacements, candidates.size()); ++n)
         {
-            if (_leet_map.contains(leet_nickname[i]))
-            {
-                candidate_positions.push_back(i);
-            }
-        }
-
-        // Shuffle and replace up to max_replacements positions.
-        engine.shuffle(candidate_positions);
-
-        for (std::size_t n = 0;
-             n < std::min(max_replacements, candidate_positions.size()); ++n)
-        {
-            auto pos = candidate_positions[n];
+            const auto pos = candidates[n];
             leet_nickname[pos] = _leet_map.at(leet_nickname[pos]);
         }
-
         return leet_nickname;
     }
 
     // Slightly modify the nickname to add some flavor.
     // NOLINTNEXTLINE(misc-no-recursion)
-    static nickname leetify(nickname nickname,
-                             effolkronium::random_local& engine,
-                             bool force = false, int depth = 0)
+    static nickname leetify(nickname nickname, core::rng& engine, bool force = false,
+                            int depth = 0)
     {
         // Maximum recursion depth to prevent stack overflow on unmappable
         // inputs.
         static constexpr int max_depth{7};
-
         // We have 1/2 chance of leetifying, force parameter overrides this.
-        if (force || engine.get<bool>())
+        if (force || core::bernoulli(engine, 0.5))
         {
             // When leetifying, there's 1/2 chance of using a finalizer or a
             // random leetifier.
-            if (engine.get<bool>())
+            if (core::bernoulli(engine, 0.5))
             {
-                // Possible methods utilized to leetify the nickname.
                 static const generators possible_generators{
                     reverse,  // emanckin
                     duovowel, // nicknamee
                     oneleet,  // n1ckname
                     allleet   // n1ckn4m3
                 };
-
-                // Capture pre-transform value to detect no-ops.
                 auto before = nickname._internal_string;
-
-                // New leetified nickname.
                 nickname._internal_string =
-                    (*engine.get(
-                        possible_generators))(nickname, engine);
-
+                    core::pick(engine, possible_generators)(nickname, engine);
                 // If the new nickname didn't change and we haven't exceeded
                 // the depth limit, force leetify again.
                 if (depth < max_depth)
                 {
-                    return leetify(nickname, engine,
-                                   nickname._internal_string == before,
+                    return leetify(nickname, engine, nickname._internal_string == before,
                                    depth + 1);
                 }
             }
             else
             {
-                // Possible methods utilized to leetify the nickname.
                 static const generators possible_generators{
                     xfy,     // nicknameX
                     reverse, // emanckin
@@ -529,219 +701,133 @@ class nng
                     tracefy, // nickname-
                     ingify,  // nicknaming
                 };
-
-                // New leetified nickname.
                 nickname._internal_string =
-                    (*engine.get(possible_generators))(
-                        nickname, engine);
+                    core::pick(engine, possible_generators)(nickname, engine);
             }
         }
-
         return nickname;
     }
+
+    // -- Case formats -------------------------------------------------------
 
     // Returns the nickname with an underscore separating its original parts.
     static std::wstring snake_case(const std::wstring& name)
     {
         std::wstring result;
         result.reserve(name.size() + 4);
-
-        for (auto&& [i, ch] : name | std::views::enumerate)
+        for (std::size_t i = 0; i < name.size(); ++i)
         {
-            if (i > 0 && iswupper(ch) != 0)
-            {
-                result.push_back(L'_');
-            }
-            result.push_back(ch);
+            if (i > 0 && is_upper_(name[i])) result.push_back(L'_');
+            result.push_back(name[i]);
         }
-
         return result;
     }
 
     // Returns the nickname in all uppercase.
-    static std::wstring upper_case(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring upper_case(const std::wstring& name,
+                                   [[maybe_unused]] core::rng& engine)
     {
-        // Name in all upper case characters.
         std::wstring upper_name{name};
-
-        // Transform every character to uppercase if possible.
-        std::ranges::for_each(
-            upper_name,
-            [](wchar_t& character) { character = std::towupper(character); });
-
+        std::ranges::for_each(upper_name, [](wchar_t& character) { character = to_upper_(character); });
         return upper_name;
     }
 
     // Returns the nickname in all lowercase.
-    static std::wstring lower_case(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring lower_case(const std::wstring& name,
+                                   [[maybe_unused]] core::rng& engine)
     {
-        // Name in all lower case characters.
         std::wstring lower_name{name};
-
-        // Transform every character to lower if possible.
-        std::ranges::for_each(
-            lower_name,
-            [](wchar_t& character) { character = std::towlower(character); });
-
+        std::ranges::for_each(lower_name, [](wchar_t& character) { character = to_lower_(character); });
         return lower_name;
     }
 
     // Returns the nickname in title case.
-    static std::wstring title_case(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring title_case(const std::wstring& name,
+                                   [[maybe_unused]] core::rng& engine)
     {
         // Well, titlecase is actually the default.
         return name;
     }
 
     // Returns the nickname in sentence case.
-    static std::wstring sentence_case(const std::wstring& name,
-                                       effolkronium::random_local& engine)
+    static std::wstring sentence_case(const std::wstring& name, core::rng& engine)
     {
-        if (name.empty())
-        {
-            return name;
-        }
-
-        // Sentence case formatted nickname.
+        if (name.empty()) return name;
         std::wstring sentence_name{lower_case(name, engine)};
-
-        // Transform the first character to upper case.
-        sentence_name.at(0) = std::towupper(sentence_name.at(0));
-
+        sentence_name.at(0) = to_upper_(sentence_name.at(0));
         return sentence_name;
     }
 
     // Returns the nickname in camel case.
-    static std::wstring camel_case(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring camel_case(const std::wstring& name,
+                                   [[maybe_unused]] core::rng& engine)
     {
-        if (name.empty())
-        {
-            return name;
-        }
-
-        // Camel case formatted nickname.
+        if (name.empty()) return name;
         std::wstring camel_name{name};
-
-        // Transform the first character to lower case.
-        camel_name.at(0) = std::towlower(camel_name.at(0));
-
+        camel_name.at(0) = to_lower_(camel_name.at(0));
         return camel_name;
     }
 
     // Returns the nickname in reverse sentence case.
-    static std::wstring reverse_sentence_case(const std::wstring& name,
-                                               effolkronium::random_local& engine)
+    static std::wstring reverse_sentence_case(const std::wstring& name, core::rng& engine)
     {
-        if (name.empty())
-        {
-            return name;
-        }
-
-        // Reverse sentence case formatted nickname.
+        if (name.empty()) return name;
         std::wstring rsentence_name{lower_case(name, engine)};
-
-        // Transform the last character to upper case.
-        rsentence_name.back() = std::towupper(rsentence_name.back());
-
+        rsentence_name.back() = to_upper_(rsentence_name.back());
         return rsentence_name;
     }
 
     // Returns the nickname in bathtub case.
-    static std::wstring bathtub_case(const std::wstring& name,
-                                      effolkronium::random_local& engine)
+    static std::wstring bathtub_case(const std::wstring& name, core::rng& engine)
     {
-        if (name.empty())
-        {
-            return name;
-        }
-
-        // Bathtub case formatted nickname.
+        if (name.empty()) return name;
         std::wstring bathtub_name{lower_case(name, engine)};
-
-        // Transform the first character to upper case.
-        bathtub_name.at(0) = std::towupper(bathtub_name.at(0));
-
-        // Transform the last character to upper case.
-        bathtub_name.back() = std::towupper(bathtub_name.back());
-
+        bathtub_name.at(0) = to_upper_(bathtub_name.at(0));
+        bathtub_name.back() = to_upper_(bathtub_name.back());
         return bathtub_name;
     }
 
     // Returns the nickname in winding case.
-    static std::wstring winding_case(const std::wstring& name,
-                                      effolkronium::random_local& engine)
+    static std::wstring winding_case(const std::wstring& name, core::rng& engine)
     {
-        // Winding case formatted nickname.
         std::wstring winding_name{lower_case(name, engine)};
-
-        // Transform to uppercase every other character.
-        for (auto&& [i, ch] : winding_name | std::views::enumerate)
+        for (std::size_t i = 0; i < winding_name.size(); i += 2)
         {
-            if ((i % 2) == 0)
-            {
-                ch = std::towupper(ch);
-            }
+            winding_name[i] = to_upper_(winding_name[i]);
         }
-
         return winding_name;
     }
 
     // Returns the nickname with case in a random fashion.
-    static std::wstring random_case(const std::wstring& name,
-                                     effolkronium::random_local& engine)
+    static std::wstring random_case(const std::wstring& name, core::rng& engine)
     {
-        // Name in all lower case characters.
         std::wstring random_name{lower_case(name, engine)};
-
-        // Randomly uppercase each character.
         std::ranges::for_each(random_name, [&engine](wchar_t& character) {
-            if (engine.get<bool>())
-            {
-                character = std::towupper(character);
-            }
+            if (core::bernoulli(engine, 0.5)) character = to_upper_(character);
         });
-
         return random_name;
     }
 
     // Returns the nickname all lower case with a single random character
     // uppercase.
-    static std::wstring random_single_case(const std::wstring& name,
-                                            effolkronium::random_local& engine)
+    static std::wstring random_single_case(const std::wstring& name, core::rng& engine)
     {
-        // Name in all lower case characters.
         std::wstring random_name{lower_case(name, engine)};
-
-        // Position of single random character to be uppercased.
-        auto random_char{engine.get(random_name)};
-
-        *random_char = std::towupper(*random_char);
-
+        if (random_name.empty()) return random_name;
+        auto& random_char = core::pick(engine, random_name);
+        random_char = to_upper_(random_char);
         return random_name;
     }
 
     // Format nickname utilizing one of the possible cases.
-    static nickname format(nickname nickname,
-                            effolkronium::random_local& engine)
+    static nickname format(nickname nickname, core::rng& engine)
     {
         // 1% chance of snake case. nick_name
-        // Probability of applying snake_case formatting.
         static constexpr double snake_case_probability{0.01};
-
-        if (engine.get<bool>(snake_case_probability))
+        if (core::bernoulli(engine, snake_case_probability))
         {
             nickname._internal_string = snake_case(nickname);
         }
-
-        // Possible methods utilized to format the nickname.
         // Repeat functions to enforce a distribution.
         static const generators possible_generators = {
             upper_case,
@@ -774,192 +860,140 @@ class nng
             random_case,       // niCKnaMe
             random_single_case // nicknaMe
         };
-
-        nickname._internal_string = (*engine.get(
-            possible_generators))(nickname, engine);
-
+        nickname._internal_string = core::pick(engine, possible_generators)(nickname, engine);
         return nickname;
     }
 
+    // -- Name-based nicknames -------------------------------------------------
+
     // Split a full name into a vector containing each name/surname.
     // Empty parts (from consecutive spaces) are filtered out.
-    [[nodiscard]] static std::vector<std::wstring> split_name(
-        const std::wstring& name)
+    [[nodiscard]] static std::vector<std::wstring> split_name(const std::wstring& name)
     {
         std::vector<std::wstring> parts;
-
-        for (auto part : name | std::views::split(L' '))
+        std::wstring current;
+        for (const wchar_t ch : name)
         {
-            std::wstring s(std::ranges::begin(part),
-                           std::ranges::end(part));
-            if (!s.empty())
+            if (ch == L' ')
             {
-                parts.push_back(std::move(s));
+                if (!current.empty()) parts.push_back(std::move(current));
+                current.clear();
+            }
+            else
+            {
+                current.push_back(ch);
             }
         }
-
+        if (!current.empty()) parts.push_back(std::move(current));
         return parts;
     }
 
     // Returns the first name.
-    static std::wstring first_name(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring first_name(const std::wstring& name,
+                                   [[maybe_unused]] core::rng& engine)
     {
-        return *(split_name(name).cbegin());
+        return split_name(name).front();
     }
 
     // Returns the last surname.
-    static std::wstring last_name(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring last_name(const std::wstring& name,
+                                  [[maybe_unused]] core::rng& engine)
     {
-        return *(split_name(name).crbegin());
+        return split_name(name).back();
     }
 
     // Returns any name (until it hits a space character).
-    static std::wstring any_name(const std::wstring& name,
-                                  effolkronium::random_local& engine)
+    static std::wstring any_name(const std::wstring& name, core::rng& engine)
     {
-        // Container with names/surnames that compose the received name.
-        std::vector<std::wstring> names_list{split_name(name)};
-
-        return *engine.get(names_list);
+        const auto names_list = split_name(name);
+        return core::pick(engine, names_list);
     }
 
     // Returns only the name initials.
-    static std::wstring initials(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring initials(const std::wstring& name,
+                                 [[maybe_unused]] core::rng& engine)
     {
-        // Generated nickname containing each name first letter.
         std::wstring nickname;
-
-        // Retrieve first letter from each part of the name.
         for (const auto& part : split_name(name))
         {
             nickname.push_back(part.front());
         }
-
         return nickname;
     }
 
     // Mix the last two names.
-    static std::wstring mix_two(const std::wstring& name,
-                                 effolkronium::random_local& engine)
+    static std::wstring mix_two(const std::wstring& name, core::rng& engine)
     {
-        // Generated nickname containing a part the last two names.
         std::wstring nickname;
-
-        // Container with names/surnames that compose the received name.
         auto names_list{split_name(name)};
-
-        // Reduce name list to two names.
         if (names_list.size() > 2)
         {
-            names_list.erase(names_list.begin(),
-                             names_list.end() - 2);
+            names_list.erase(names_list.begin(), names_list.end() - 2);
         }
-
-        // Iterate through each name retrieving random number of letters.
-        for (const auto& name : names_list)
+        for (const auto& part : names_list)
         {
-            if (name.size() < 2)
+            if (part.size() < 2)
             {
-                nickname.append(name);
+                nickname.append(part);
             }
             else
             {
-                nickname.append(name.substr(
-                    0, engine.get<std::size_t>(
-                           2, name.size())));
+                nickname.append(part.substr(0, core::uniform_int<std::size_t>(engine, 2, part.size())));
             }
         }
-
         return nickname;
     }
 
     // Mix first name with last name initial.
-    static std::wstring first_plus_initial(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring first_plus_initial(const std::wstring& name,
+                                           [[maybe_unused]] core::rng& engine)
     {
-        // Container with names/surnames that compose the received name.
-        const std::vector<std::wstring> names_list{split_name(name)};
-
-        if (names_list.size() < 2)
-        {
-            return names_list.front();
-        }
-
+        const auto names_list{split_name(name)};
+        if (names_list.size() < 2) return names_list.front();
         return names_list.front() + names_list.back().front();
     }
 
     // Mix last name with first name initial.
-    static std::wstring initial_plus_last(
-        const std::wstring& name,
-        [[maybe_unused]] effolkronium::random_local& engine)
+    static std::wstring initial_plus_last(const std::wstring& name,
+                                          [[maybe_unused]] core::rng& engine)
     {
-        // Container with names/surnames that compose the received name.
         const auto names_list{split_name(name)};
-
-        if (names_list.size() < 2)
-        {
-            return names_list.front();
-        }
-
+        if (names_list.size() < 2) return names_list.front();
         return names_list.front().front() + names_list.back();
     }
 
     // Reduce a random part of the name.
-    static std::wstring reduce_single_name(const std::wstring& name,
-                                            effolkronium::random_local& engine)
+    static std::wstring reduce_single_name(const std::wstring& name, core::rng& engine)
     {
-        // Random part of name.
         std::wstring single_name{any_name(name, engine)};
-
         if (single_name.size() > 3)
         {
             // Remove all vowel characters from the name unless it's already
             // small enough.
-            single_name.erase(
-                std::remove_if(single_name.begin() + 1, single_name.end() - 1,
-                               [&single_name](const wchar_t& character) {
-                                   return (_vowels.contains(character) &&
-                                           (single_name.size() > 3));
-                               }),
-                single_name.end() - 1);
+            single_name.erase(std::remove_if(single_name.begin() + 1, single_name.end() - 1,
+                                             [&single_name](const wchar_t& character) {
+                                                 return (_vowels.contains(character) &&
+                                                         (single_name.size() > 3));
+                                             }),
+                              single_name.end() - 1);
         }
-
         return single_name;
     }
 
     // Contains logic to generate a random nickname optionally based on the
     // player full name.
-    [[nodiscard]] nickname solver(const std::wstring& name,
-                                   effolkronium::random_local& engine) const
+    [[nodiscard]] nickname solver(const std::wstring& name, core::rng& engine) const
     {
-        // Holds the original word used to generate the nickname.
         std::wstring original;
-
-        // Holds the modified version.
         std::wstring nick;
-
         // 1/4 chance of nickname being name related.
         static constexpr double name_related_probability{0.25};
-
-        // When name is provided, use name-based generation with
-        // name_related_probability — but always use the name if there are
-        // no wordlists to fall back to.
+        // Always use the name if there are no word lists to fall back to.
+        const bool has_name = !split_name(name).empty();
         const bool use_name =
-            !name.empty() &&
-            (_wordlists.empty() ||
-             engine.get<bool>(name_related_probability));
-
-        // Proceed to generate nickname based on name.
+            has_name && (_wordlists.empty() || core::bernoulli(engine, name_related_probability));
         if (use_name)
         {
-            // Possible methods utilized to generate a nickname.
             // Purposefully adds redundancy to first and last name with any name
             // to add double weight to them.
             static const generators possible_generators{
@@ -972,78 +1006,24 @@ class nng
                 first_plus_initial, // JohnS
                 reduce_single_name  // Jhn
             };
-
             original = name;
-
-            // Return a nickname from one of the name based possibilities.
-            nick = (*engine.get(
-                possible_generators))(name, engine);
+            nick = core::pick(engine, possible_generators)(name, engine);
         }
-        // Proceed to generate nickname based on a word list.
         else if (!_wordlists.empty())
         {
-            // Randomly select a wordlist.
-            const word_container& drawn_wordlist =
-                *engine.get(_wordlists);
-
-            // Randomly selects a word from the wordlist.
-            nick = original =
-                *engine.get(drawn_wordlist);
+            const auto& drawn_wordlist = core::pick(engine, _wordlists);
+            nick = original = core::pick(engine, drawn_wordlist);
         }
         else
         {
-            throw(std::invalid_argument(
-                "Received no name and word lists are empty"));
+            throw std::invalid_argument("Received no name and word lists are empty");
         }
-
         return format(leetify({nick, original}, engine), engine);
-    }
-
-    // Try parsing the wordlist file and index it into our container.
-    void parse_file(const std::filesystem::path& file)
-    {
-        // Expected wordlist file format is content type string, list of words.
-        std::wifstream tentative_file{file};
-
-        // If managed to open the file proceed.
-        if (tentative_file.is_open())
-        {
-            // Expected delimiter character.
-            const wchar_t delimiter{'\n'};
-
-            // Line being read from the file.
-            std::wstring file_line;
-
-            // List of parsed words.
-            word_container words_read{std::vector<std::wstring>()};
-
-            // Retrieves list of words.
-            while (std::getline(tentative_file, file_line, delimiter))
-            {
-                // Strip trailing carriage return for cross-platform
-                // compatibility.
-                if (!file_line.empty() && file_line.back() == L'\r')
-                {
-                    file_line.pop_back();
-                }
-
-                // Skip empty lines (including blank trailing lines).
-                if (!file_line.empty())
-                {
-                    words_read.push_back(file_line);
-                }
-            }
-
-            // Index our container.
-            if (!words_read.empty())
-            {
-                _wordlists.push_back(std::move(words_read));
-            }
-        }
     }
 
     friend struct ::nng_test_access;
 };
+
 } // namespace dasmig
 
 #endif // DASMIG_NICKNAMEGEN_HPP

@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cwctype>
 #include <filesystem>
+#include <fstream>
 #include <ranges>
 #include <string>
 #include <vector>
@@ -15,47 +16,47 @@ struct nng_test_access
 {
     static std::wstring sentence_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::sentence_case(s, e);
     }
     static std::wstring camel_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::camel_case(s, e);
     }
     static std::wstring reverse_sentence_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::reverse_sentence_case(s, e);
     }
     static std::wstring bathtub_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::bathtub_case(s, e);
     }
     static std::wstring upper_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::upper_case(s, e);
     }
     static std::wstring lower_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::lower_case(s, e);
     }
     static std::wstring title_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::title_case(s, e);
     }
     static std::wstring winding_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::winding_case(s, e);
     }
     static std::wstring random_single_case(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::random_single_case(s, e);
     }
     static std::wstring snake_case(const std::wstring& s)
@@ -64,87 +65,87 @@ struct nng_test_access
     }
     static std::wstring xfy(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::xfy(s, e);
     }
     static std::wstring reverse(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::reverse(s, e);
     }
     static std::wstring yfy(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::yfy(s, e);
     }
     static std::wstring numify(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::numify(s, e);
     }
     static std::wstring tracefy(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::tracefy(s, e);
     }
     static std::wstring ingify(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::ingify(s, e);
     }
     static std::wstring duovowel(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::duovowel(s, e);
     }
     static std::wstring oneleet(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::oneleet(s, e);
     }
     static std::wstring allleet(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::allleet(s, e);
     }
     static std::wstring first_name(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::first_name(s, e);
     }
     static std::wstring last_name(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::last_name(s, e);
     }
     static std::wstring any_name(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::any_name(s, e);
     }
     static std::wstring initials(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::initials(s, e);
     }
     static std::wstring mix_two(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::mix_two(s, e);
     }
     static std::wstring first_plus_initial(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::first_plus_initial(s, e);
     }
     static std::wstring initial_plus_last(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::initial_plus_last(s, e);
     }
     static std::wstring reduce_single_name(const std::wstring& s)
     {
-        effolkronium::random_local e;
+        dasmig::core::rng e{1};
         return dasmig::nng::reduce_single_name(s, e);
     }
     static auto& wordlists(dasmig::nng& g)
@@ -1053,3 +1054,141 @@ TEST_CASE("64-bit seeds differing in upper bits produce different nicknames",
     }
     REQUIRE(found_different);
 }
+
+// ---------------------------------------------------------------------------
+// Known answers (rule 2): the same seed, name and word lists give these
+// exact results on every compiler and platform. A change here is a change of
+// output and needs a major version.
+// ---------------------------------------------------------------------------
+
+TEST_CASE("known answers for fixed seeds", "[kat]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    REQUIRE(g.data_hash() == 0x87dd5622316ce1feULL);
+    REQUIRE(g.list_names() == std::vector<std::string>{"adjectives", "animals", "japanese"});
+
+    REQUIRE(g.get_nickname(L"Alberto Bins Elis", 1).to_json() ==
+            R"({"nickname":"Molee","source":"Mole","signature":{"seed":"0000000000000001","data":"87dd5622316ce1fe"}})");
+    REQUIRE(g.get_nickname(L"", 2).to_json() ==
+            R"({"nickname":"ioiN","source":"Nioi","signature":{"seed":"0000000000000002","data":"87dd5622316ce1fe"}})");
+
+    // Accented names: the case mapping does not depend on the locale.
+    const std::wstring accented = L"José García Élodie";
+    REQUIRE(std::wstring{g.get_nickname(accented, 12)} == L"ÉésoJ");
+    REQUIRE(std::wstring{g.get_nickname(accented, 23)} == L"Jgé");
+    REQUIRE(std::wstring{g.get_nickname(accented, 25)} == L"EIDOLÉ");
+    REQUIRE(std::wstring{g.get_nickname(accented, 26)} == L"XgarélodiE");
+    REQUIRE(std::wstring{g.get_nickname(accented, 35)} == L"JosÉ");
+
+    std::uint64_t h = 0xcbf29ce484222325ULL;
+    for (std::uint64_t s = 0; s < 10000; ++s)
+    {
+        for (const char c : g.get_nickname(s % 2 == 0 ? L"" : L"Alberto Bins Elis", s).to_json())
+        {
+            h ^= static_cast<unsigned char>(c);
+            h *= 0x100000001b3ULL;
+        }
+    }
+    REQUIRE(h == 0xba2f70e6e6c8f7f5ULL);
+}
+
+TEST_CASE("case changes use a fixed mapping", "[case]")
+{
+    // Latin-1 and Latin Extended-A letters change case; others do not.
+    REQUIRE(nng_test_access::upper_case(L"éñÿłž") ==
+            L"ÉÑŸŁŽ");
+    REQUIRE(nng_test_access::lower_case(L"ÉÑŸŁŽ") ==
+            L"éñÿłž");
+    REQUIRE(nng_test_access::upper_case(L"÷ßı") == L"÷ßı"); // ÷ ß ı unchanged
+    REQUIRE(nng_test_access::upper_case(L"α中") == L"α中");             // Greek, CJK unchanged
+    REQUIRE(nng_test_access::snake_case(L"ÉlodieGarcía") == L"Élodie_García");
+}
+
+// ---------------------------------------------------------------------------
+// JSON and signatures
+// ---------------------------------------------------------------------------
+
+TEST_CASE("to_json and signature", "[json]")
+{
+    const auto n = gen().get_nickname(L"Ana Lima", 9);
+    REQUIRE(n.seed() == 9);
+    REQUIRE(n.signature().data == gen().data_hash());
+    const auto json = n.to_json();
+    REQUIRE(json.starts_with(R"({"nickname":")"));
+    REQUIRE(json.find(R"("signature":{"seed":"0000000000000009")") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// Extending data (rule 8)
+// ---------------------------------------------------------------------------
+
+TEST_CASE("extend adds lists and words, and removes words", "[extend]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const auto hash = g.data_hash();
+
+    // A new list from TSV text.
+    const auto& info = g.extend_from_string("planets", "word\nMercury\nVenus\nMars\n", "planets.tsv");
+    REQUIRE(info.added == 3);
+    REQUIRE(g.list_names().size() == 4);
+    REQUIRE(g.data_hash() != hash);
+
+    // Removing words; a list with no words left is not used.
+    g.extend_from_string("planets", "word\tdisabled\nMercury\t1\nVenus\t1\nMars\t1\n", "cleanup");
+    REQUIRE(g.list_names().size() == 3);
+
+    // Files: .words adds to the list named after the file.
+    const auto dir = std::filesystem::temp_directory_path() / "nng_layer";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    {
+        std::ofstream{dir / "animals.words"} << "Axolotl\nQuokka\n";
+    }
+    g.extend(dir / "animals.words");
+    REQUIRE(g.layers("animals").size() == 2);
+    REQUIRE(g.layers("animals").back().added == 2);
+
+    REQUIRE_THROWS_AS(g.extend(dir / "missing.txt"), std::invalid_argument);
+    std::filesystem::remove_all(dir);
+
+    g.load(resource_path());
+    REQUIRE(g.data_hash() == hash);
+}
+
+TEST_CASE("a directory layer is applied all or nothing", "[extend][errors]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const auto hash = g.data_hash();
+    const auto dir = std::filesystem::temp_directory_path() / "nng_bad_layer";
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    {
+        std::ofstream{dir / "a_good.words"} << "Fine\n";
+        std::ofstream{dir / "b_bad.tsv"} << "word\tdisabled\nOops\tmaybe\n";
+    }
+    REQUIRE_THROWS_AS(g.extend(dir), dasmig::core::tsv_error);
+    REQUIRE(g.data_hash() == hash); // a_good.words was not applied either
+    REQUIRE(g.list_names().size() == 3);
+    std::filesystem::remove_all(dir);
+}
+
+#ifdef DASMIG_NICKNAME_EMBED
+TEST_CASE("compiled-in data needs no files and matches them", "[embed]")
+{
+    const auto old_cwd = std::filesystem::current_path();
+    const auto tmp = std::filesystem::temp_directory_path() / "nng_embed_dir";
+    std::filesystem::create_directories(tmp);
+    std::filesystem::current_path(tmp);
+    dasmig::nng g;
+    const bool loaded = g.load(dasmig::dataset::lite);
+    std::filesystem::current_path(old_cwd);
+    std::filesystem::remove_all(tmp);
+
+    REQUIRE(loaded);
+    REQUIRE(g.layers("animals").front().source == "embedded:lite/animals.words");
+    REQUIRE(g.data_hash() == 0x87dd5622316ce1feULL); // same as the files
+}
+#endif
