@@ -368,9 +368,9 @@ class nng
     // š ù ú û ü ý ÿ.
     // NOLINTNEXTLINE(bugprone-throwing-static-initialization)
     static const inline std::wstring _vowels{
-        L"aeiouáàâãäåæçèéêë"
-        L"ìíîïðñòóôõöø"
-        L"šùúûüýÿ"};
+        L"aeiou\u00E1\u00E0\u00E2\u00E3\u00E4\u00E5\u00E6\u00E7\u00E8\u00E9\u00EA\u00EB"
+        L"\u00EC\u00ED\u00EE\u00EF\u00F0\u00F1\u00F2\u00F3\u00F4\u00F5\u00F6\u00F8"
+        L"\u0161\u00F9\u00FA\u00FB\u00FC\u00FD\u00FF"};
 
     // Maps letters to their leet-speak digit equivalents.
     // NOLINTNEXTLINE(bugprone-throwing-static-initialization)
@@ -432,6 +432,7 @@ class nng
         }
         std::ranges::sort(files); // the iteration order is unspecified
         std::vector<std::pair<std::string, core::tsv_document>> docs;
+        docs.reserve(files.size());
         for (const auto& file : files)
         {
             docs.emplace_back(core::to_utf8(file.stem().wstring()), *read_file_(file));
@@ -451,9 +452,11 @@ class nng
         for (auto& [name, doc] : docs)
         {
             auto it = next.try_emplace(name, schema_()).first;
-            const auto list_mode = reset && !started[name] ? core::layer_mode::replace
-                                   : reset               ? core::layer_mode::override
-                                                         : mode;
+            auto list_mode = mode;
+            if (reset)
+            {
+                list_mode = started[name] ? core::layer_mode::override : core::layer_mode::replace;
+            }
             started[name] = true;
             (void)it->second.extend(std::move(doc), list_mode, [](const core::tsv_row& row) {
                 (void)core::from_utf8(row["word"]);
