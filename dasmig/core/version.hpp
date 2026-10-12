@@ -15,7 +15,7 @@
 /// @brief Minor version. Changes when features are added compatibly.
 #define DASMIG_CORE_VERSION_MINOR 3
 /// @brief Patch version. Changes for fixes that keep output identical.
-#define DASMIG_CORE_VERSION_PATCH 3
+#define DASMIG_CORE_VERSION_PATCH 4
 
 /// @brief Fails compilation unless the core in use is compatible with the
 ///        version a library was built against.

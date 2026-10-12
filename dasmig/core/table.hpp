@@ -8,12 +8,12 @@
 #include <cstdint>
 #include <functional>
 #include <initializer_list>
-#include <map>
 #include <optional>
 #include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -132,21 +132,35 @@ class layered_table
             w.index = _index;
         }
         w.removed.assign(w.rows.size(), false);
+        w.touched.assign(w.rows.size(), untouched);
+        w.rows.reserve(w.rows.size() + doc.size());
+        w.index.reserve(w.rows.size() + doc.size());
         const bool has_disabled = doc.has_column(disabled_column);
+        bool any_removed = false;
         for (const auto& row : doc.rows())
         {
-            apply_row(row, mode, has_disabled, validate, w, info);
+            any_removed |= apply_row(row, mode, has_disabled, validate, w, info);
         }
 
-        // Compact removed rows and rebuild the index.
+        // Compact removed rows and rebuild the index; without removals the
+        // working index is already right.
         std::vector<tsv_row> kept;
-        kept.reserve(w.rows.size());
-        std::map<std::string, std::size_t, std::less<>> kept_index;
-        for (std::size_t i = 0; i < w.rows.size(); ++i)
+        key_index kept_index;
+        if (any_removed)
         {
-            if (w.removed[i]) continue;
-            kept_index.emplace(key_of(w.rows[i]), kept.size());
-            kept.push_back(w.rows[i]);
+            kept.reserve(w.rows.size());
+            kept_index.reserve(w.rows.size());
+            for (std::size_t i = 0; i < w.rows.size(); ++i)
+            {
+                if (w.removed[i]) continue;
+                kept_index.emplace(key_of(w.rows[i]), kept.size());
+                kept.push_back(w.rows[i]);
+            }
+        }
+        else
+        {
+            kept = std::move(w.rows);
+            kept_index = std::move(w.index);
         }
 
         // Commit: nothing below throws except allocation. A replace layer
@@ -237,29 +251,56 @@ class layered_table
   private:
     static constexpr char key_separator = '\x1f';
 
+    // Keys to row indices. Only looked up, never iterated, so the order of a
+    // hash map does not reach the output.
+    struct key_hash
+    {
+        using is_transparent = void;
+        [[nodiscard]] std::size_t operator()(std::string_view key) const noexcept
+        {
+            return std::hash<std::string_view>{}(key);
+        }
+    };
+    using key_index = std::unordered_map<std::string, std::size_t, key_hash, std::equal_to<>>;
+
+    static constexpr std::size_t untouched = static_cast<std::size_t>(-1);
+
     // The table being built by extend(), applied only when every row passed.
     struct working
     {
         std::vector<tsv_row> rows;
-        std::map<std::string, std::size_t, std::less<>> index;
+        key_index index;
         std::vector<bool> removed;
-        std::map<std::string, std::size_t, std::less<>> seen; // key -> line, within the layer
+        // Per row: the layer line that added, replaced or removed it, or
+        // `untouched`. Finds keys repeated within the layer.
+        std::vector<std::size_t> touched;
+        key_index disabled_unloaded; // keys the layer disabled that were not loaded -> line
         std::string missing_required; // a required column the layer lacks, if any
     };
 
-    void apply_row(const tsv_row& row, layer_mode mode, bool has_disabled,
+    // Returns true when the row removed a loaded row.
+    bool apply_row(const tsv_row& row, layer_mode mode, bool has_disabled,
                    const std::function<void(const tsv_row&)>& validate, working& w,
                    layer_info& info) const
     {
         std::string key = key_of(row);
-        if (const auto [it, inserted] = w.seen.emplace(key, row.line()); !inserted)
-        {
-            throw row.error("", "key repeated (first on line " + std::to_string(it->second) + ")");
-        }
-        // Keys are unique within a layer, so a key is never removed and added
-        // again by the same layer.
         const auto existing = w.index.find(key);
         const bool exists = existing != w.index.end();
+        // Keys are unique within a layer, so a key is never removed and added
+        // again by the same layer.
+        std::size_t first_line = untouched;
+        if (exists)
+        {
+            first_line = w.touched[existing->second];
+        }
+        else if (const auto it = w.disabled_unloaded.find(key); it != w.disabled_unloaded.end())
+        {
+            first_line = it->second;
+        }
+        if (first_line != untouched)
+        {
+            throw row.error("", "key repeated (first on line " + std::to_string(first_line) + ")");
+        }
 
         if (has_disabled && is_disabled(row))
         {
@@ -270,14 +311,14 @@ class layered_table
             if (exists)
             {
                 w.removed[existing->second] = true;
+                w.touched[existing->second] = row.line();
                 ++info.removed;
+                return true;
             }
-            else
-            {
-                info.warnings.push_back(row.source() + ":" + std::to_string(row.line()) +
-                                        ": disabled key is not loaded");
-            }
-            return;
+            w.disabled_unloaded.emplace(std::move(key), row.line());
+            info.warnings.push_back(row.source() + ":" + std::to_string(row.line()) +
+                                    ": disabled key is not loaded");
+            return false;
         }
         // Only rows that add or replace data need the required columns; a
         // layer that just disables rows needs the key alone.
@@ -293,13 +334,16 @@ class layered_table
                 throw row.error("", "key already loaded (layer is in add mode)");
             }
             w.rows[existing->second] = row;
+            w.touched[existing->second] = row.line();
             ++info.replaced;
-            return;
+            return false;
         }
         w.index.emplace(std::move(key), w.rows.size());
         w.rows.push_back(row);
         w.removed.push_back(false);
+        w.touched.push_back(row.line());
         ++info.added;
+        return false;
     }
 
     // Throws when a key column is missing; returns the first missing required
@@ -360,7 +404,7 @@ class layered_table
     table_schema _schema;
     std::vector<tsv_document> _documents; // keeps the rows' data alive
     std::vector<tsv_row> _rows;
-    std::map<std::string, std::size_t, std::less<>> _index;
+    key_index _index;
     std::vector<layer_info> _layers;
 };
 
