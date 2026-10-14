@@ -18,6 +18,7 @@ This guide covers every feature of the nickname-generator library in detail. For
 <li><a href="#extending-data">Extending Data</a></li>
 <li><a href="#replay-and-json">Replay and JSON</a></li>
 <li><a href="#compiled-in-data">Compiled-in Data</a></li>
+<li><a href="#request-api-migration">Request API Migration</a></li>
 <li><a href="#migrating-from-v1">Migrating from v1</a></li>
 <li><a href="#error-reference">Error Reference</a></li>
 </ul>
@@ -33,10 +34,10 @@ int main()
     auto& gen = dasmig::nng::instance();
 
     // Random nickname from word lists.
-    std::wcout << gen.get_nickname() << L"\n";
+    std::wcout << gen.get_nickname({}) << L"\n";
 
     // Nickname based on a player name.
-    std::wcout << gen.get_nickname(L"John Smith") << L"\n";
+    std::wcout << gen.get_nickname({.name = L"John Smith"}) << L"\n";
 }
 ```
 
@@ -69,10 +70,22 @@ gen.load("/opt/data/wordlists");         // or a directory of your own
 
 ## Generating Nicknames
 
+Both generation overloads require a `dasmig::nickname_request`:
+`get_nickname(request)` uses the instance's normal random engine, and
+`get_nickname(request, seed)` is deterministic and `const`.
+
+| Request field | Type | Default | Meaning |
+|---------------|------|---------|---------|
+| `name` | `std::wstring` | Empty | Optional full name; empty or only spaces selects from word lists |
+
+The request owns its name and can be reused. Word lists, resource paths and
+data layers are instance setup, not request fields. Decoration and case
+probabilities retain the existing model described below.
+
 ### Random (word list based)
 
 ```cpp
-auto nick = dasmig::nng::instance().get_nickname();
+auto nick = dasmig::nng::instance().get_nickname({});
 std::wstring text = nick;  // implicit conversion
 ```
 
@@ -80,16 +93,17 @@ std::wstring text = nick;  // implicit conversion
 
 When a name is provided there is a 25 % chance the nickname will be derived
 from it (using initials, mixing name parts, etc.). Otherwise a random word
-from the loaded lists is used.
+from the loaded lists is used. Without word lists, the name is always used.
 
 ```cpp
-auto nick = dasmig::nng::instance().get_nickname(L"Alberto Bins Elis");
+const dasmig::nickname_request request{.name = L"Alberto Bins Elis"};
+auto nick = dasmig::nng::instance().get_nickname(request);
 ```
 
 ### Accessing the original
 
 ```cpp
-auto nick = dasmig::nng::instance().get_nickname(L"Jane Doe");
+auto nick = dasmig::nng::instance().get_nickname({.name = L"Jane Doe"});
 std::wcout << nick.plain();   // "Jane Doe" or the source word
 std::wcout << nick;           // the transformed nickname
 ```
@@ -158,13 +172,14 @@ local static for safe initialization.
 | Operation | Thread-safe? |
 |-----------|-------------|
 | `instance()` | Yes (static local) |
-| `get_nickname()` on **different** instances | Yes |
-| `get_nickname()` on the **same** instance | **No** — requires external synchronization |
+| `get_nickname(request)` on **different** instances | Yes |
+| `get_nickname(request)` on the **same** instance | **No** — requires external synchronization |
+| `get_nickname(request, seed)` on the **same** instance | Yes, if word lists are not changed concurrently |
 | `load()`, `extend()` | **No** — must not be called concurrently with `get_nickname()` on the same instance |
 
 Load and extend once during initialization before spawning threads. For
 concurrent generation, give each thread its own `nng` instance; the seeded
-overload `get_nickname(name, seed)` is `const` and does not touch the engine.
+overload `get_nickname(request, seed)` is `const` and does not touch the engine.
 
 ## Seeding and Deterministic Generation
 
@@ -173,50 +188,43 @@ overload `get_nickname(name, seed)` is `const` and does not touch the engine.
 Pass an explicit seed to `get_nickname()` to produce the same nickname every time:
 
 ```cpp
-auto nick = dasmig::nng::instance().get_nickname(L"John Smith", 42);
-// The same name, seed and word lists give the same nickname on every
+auto nick = dasmig::nng::instance().get_nickname({.name = L"John Smith"}, 42);
+// The same request, seed and word lists give the same nickname on every
 // compiler, standard library and CPU.
 ```
 
 ### Seed replay
 
 Every nickname records its seed. Retrieve it with `nickname::seed()` and pass
-it back to reproduce the exact same result:
+it back with the same request and word lists to reproduce the exact same result:
 
 ```cpp
-auto nick = dasmig::nng::instance().get_nickname(L"Jane Doe");
+const dasmig::nickname_request request{.name = L"Jane Doe"};
+auto nick = dasmig::nng::instance().get_nickname(request);
 auto saved_seed = nick.seed();
 
 // Later, replay:
-auto replay = dasmig::nng::instance().get_nickname(L"Jane Doe", saved_seed);
+auto replay = dasmig::nng::instance().get_nickname(request, saved_seed);
 // replay == nick
 ```
 
-### Sequence seeding
+### Deterministic sequences
 
-Seed the generator's engine for a reproducible sequence of nicknames:
+Supply a seed for each call to produce a reproducible sequence. There are no
+generator-level seeding controls:
 
 ```cpp
 auto& gen = dasmig::nng::instance();
 
-gen.seed(100);
-auto a = gen.get_nickname(L"Alice");
-auto b = gen.get_nickname(L"Bob");
+auto a = gen.get_nickname({.name = L"Alice"}, 100);
+auto b = gen.get_nickname({.name = L"Bob"}, 101);
 
-gen.seed(100);                      // reset
-auto a2 = gen.get_nickname(L"Alice"); // identical to a
-auto b2 = gen.get_nickname(L"Bob");   // identical to b
-
-gen.unseed(); // restore non-deterministic behavior
+auto a2 = gen.get_nickname({.name = L"Alice"}, 100); // identical to a
+auto b2 = gen.get_nickname({.name = L"Bob"}, 101);   // identical to b
 ```
 
-`seed()` and `unseed()` return `*this` for chaining:
-
-```cpp
-gen.seed(42).get_nickname(L"Test");
-```
-
-> **Note:** `seed()` / `unseed()` affect only that instance's engine.
+Explicitly seeded calls do not advance the instance's random engine. Calls
+without a seed continue normal random generation.
 
 ### Checking resources
 
@@ -245,12 +253,12 @@ dasmig::nng gen;
 gen.load("path/to/my-words");
 
 // Generate nicknames — independent from instance().
-std::wcout << gen.get_nickname(L"Player One") << L"\n";
+std::wcout << gen.get_nickname({.name = L"Player One"}) << L"\n";
 ```
 
-### Separate Seeding
+### Per-call Seeding
 
-Each instance maintains its own engine, so seeding one does not affect another:
+An explicit seed affects only that call, not another instance or later calls:
 
 ```cpp
 dasmig::nng a;
@@ -258,12 +266,8 @@ dasmig::nng b;
 a.load("resources");
 b.load("resources");
 
-a.seed(42);
-b.seed(99);
-
-// a and b produce different sequences.
-std::wcout << a.get_nickname(L"Test") << L"\n";
-std::wcout << b.get_nickname(L"Test") << L"\n";
+std::wcout << a.get_nickname({.name = L"Test"}, 42) << L"\n";
+std::wcout << b.get_nickname({.name = L"Test"}, 99) << L"\n";
 ```
 
 ### Move Semantics
@@ -314,12 +318,13 @@ gen.extend("mods/japanese.words", dasmig::core::layer_mode::add);
 Every result records the seed and the data it came from:
 
 ```cpp
-auto n = gen.get_nickname(L"Alberto Bins Elis");
+const dasmig::nickname_request request{.name = L"Alberto Bins Elis"};
+auto n = gen.get_nickname(request);
 n.seed();                    // the call seed
 n.signature().data;          // gen.data_hash() when it was generated
 
-// Same seed, same name, same lists: the same nickname everywhere.
-auto again = gen.get_nickname(L"Alberto Bins Elis", n.seed());
+// Same seed, same request, same lists: the same nickname everywhere.
+auto again = gen.get_nickname(request, n.seed());
 
 if (n.signature().data != gen.data_hash())
 {
@@ -346,6 +351,21 @@ Define `DASMIG_NICKNAME_EMBED` before including the header to compile the word l
 
 `dasmig/nicknamegen_data.hpp` is generated from `resources/lite` by `make embed`; CI checks it is up to date.
 
+## Request API Migration
+
+Generation is now request-first, with only `get_nickname(request)` and
+`get_nickname(request, seed)`. Replace no-argument calls with
+`get_nickname({})`, and string arguments with
+`get_nickname({.name = L"Player Name"})` (or a reusable `nickname_request`).
+For deterministic calls, the seed remains the second argument.
+
+Generator-level `seed()` and `unseed()` are removed. To generate deterministic
+sequences, pass an explicit seed on each call; to resume normal random
+generation, omit the seed. `nickname::seed()` remains available for replay.
+The request, loaded word lists and explicit seed reproduce the previous
+per-call seeded results unchanged. `load()`, `extend()` and resource queries
+remain instance APIs.
+
 ## Migrating from v1
 
 Version 2 moves the library onto [dasmig-core](https://github.com/dasmig/dasmig-core).
@@ -361,7 +381,7 @@ Version 2 moves the library onto [dasmig-core](https://github.com/dasmig/dasmig-
 
 | Exception | Thrown by | Condition |
 |-----------|-----------|----------|
-| `std::invalid_argument` | `nng::get_nickname()` | Empty name **and** no word lists loaded |
+| `std::invalid_argument` | `nng::get_nickname()` | Request name is empty or only spaces **and** no word lists loaded |
 | `std::invalid_argument` | `nng::extend(path)` | A file that is neither `.words` nor `.tsv` |
 | `std::out_of_range` | `nng::layers(list)` | No list with that name |
 | `dasmig::core::tsv_error` | `load()`, `extend()`, `extend_from_string()` | A malformed file or layer (message gives file, line and column); the lists are unchanged |
