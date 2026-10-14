@@ -34,6 +34,19 @@ struct nng_test_access;
 namespace dasmig
 {
 
+/// @brief Per-call choices for nickname generation.
+///
+/// Word lists are loaded on nng; deterministic calls take a separate seed.
+struct nickname_request
+{
+    /// @brief Full name to optionally derive the nickname from.
+    ///
+    /// Empty (or only spaces) selects from the loaded word lists. With a
+    /// name, one in four nicknames is derived from it; without word lists,
+    /// the name is always used.
+    std::wstring name{};
+};
+
 /// @brief Return type for nickname generation, holding both the transformed
 ///        nickname and the original source string.
 ///
@@ -51,7 +64,7 @@ class nickname
 
     /// @brief Retrieve the random seed used to generate this nickname.
     /// @return The per-call seed for replay.
-    /// @see nng::get_nickname(const std::wstring&, std::uint64_t)
+    /// @see nng::get_nickname(const nickname_request&, std::uint64_t)
     [[nodiscard]] std::uint64_t seed() const
     {
         return _signature.seed;
@@ -135,8 +148,9 @@ class nickname
 /// Can be used as a singleton via instance() or constructed independently.
 ///
 /// @par Thread safety
-/// Each instance is independent. Concurrent calls to get_nickname() on the
-/// **same** instance require external synchronisation.
+/// Each instance is independent. Concurrent calls to get_nickname(request)
+/// on the **same** instance require external synchronisation. Seeded calls
+/// are read-only and can run concurrently, provided no word lists are changed.
 class nng
 {
   public:
@@ -166,46 +180,29 @@ class nng
     /// With a name, one in four nicknames is derived from it (always, when
     /// no word lists are loaded); the others come from the word lists.
     ///
-    /// @param name Full name such as L"Alberto Bins Elis" (may be empty).
+    /// @param request Per-call choices; use {} for a word-list nickname.
     /// @return The generated nickname.
-    /// @throws std::invalid_argument If @p name is empty and no word lists
-    ///         are loaded.
-    [[nodiscard]] nickname get_nickname(const std::wstring& name = L"")
+    /// @throws std::invalid_argument If request.name has no name parts and
+    ///         no word lists are loaded.
+    [[nodiscard]] nickname get_nickname(const nickname_request& request)
     {
-        return get_nickname(name, _engine());
+        return get_nickname(request, _engine());
     }
 
     /// @brief Generate a deterministic nickname.
-    /// @param name Full name (may be empty).
-    /// @param call_seed Seed; the same seed, name and word lists give the
+    /// @param request Per-call choices; use {} for a word-list nickname.
+    /// @param call_seed Seed; the same seed, request and word lists give the
     ///        same nickname.
     /// @return The generated nickname.
-    /// @throws std::invalid_argument If @p name is empty and no word lists
-    ///         are loaded.
-    [[nodiscard]] nickname get_nickname(const std::wstring& name,
+    /// @throws std::invalid_argument If request.name has no name parts and
+    ///         no word lists are loaded.
+    [[nodiscard]] nickname get_nickname(const nickname_request& request,
                                         std::uint64_t call_seed) const
     {
         auto r = core::rng{call_seed}.split("nickname");
-        auto result = solver(name, r);
+        auto result = solver(request.name, r);
         result._signature = {.seed = call_seed, .data = data_hash()};
         return result;
-    }
-
-    /// @brief Seed the internal random engine for deterministic sequences.
-    /// @param seed_value Seed.
-    /// @return `*this` for chaining.
-    nng& seed(std::uint64_t seed_value)
-    {
-        _engine.seed(seed_value);
-        return *this;
-    }
-
-    /// @brief Reseed the engine with a non-deterministic source.
-    /// @return `*this` for chaining.
-    nng& unseed()
-    {
-        _engine.unseed();
-        return *this;
     }
 
     /// @brief Check whether any word list is loaded.

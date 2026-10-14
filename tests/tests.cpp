@@ -7,6 +7,7 @@
 #include <fstream>
 #include <ranges>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 // ---------------------------------------------------------------------------
@@ -152,11 +153,29 @@ struct nng_test_access
     {
         return g._wordlists;
     }
+    static auto engine(const dasmig::nng& g)
+    {
+        return g._engine;
+    }
     static std::vector<std::wstring> split_name(const std::wstring& s)
     {
         return dasmig::nng::split_name(s);
     }
 };
+
+template <class Generator>
+concept legacy_generation_api = requires(Generator& g) { g.get_nickname(); } ||
+                                requires(Generator& g, std::wstring name) {
+                                    g.get_nickname(name);
+                                } ||
+                                requires(Generator& g, std::wstring name) {
+                                    g.get_nickname(name, std::uint64_t{42});
+                                } ||
+                                requires(Generator& g) { g.seed(std::uint64_t{42}); } ||
+                                requires(Generator& g) { g.unseed(); };
+
+static_assert(std::is_aggregate_v<dasmig::nickname_request>);
+static_assert(!legacy_generation_api<dasmig::nng>);
 
 // ---------------------------------------------------------------------------
 // Helper: locate the resources directory (works from repo root or build/)
@@ -193,7 +212,7 @@ static dasmig::nng& gen()
 // ---------------------------------------------------------------------------
 TEST_CASE("nickname - plain() returns original string", "[nickname]")
 {
-    const auto nick = gen().get_nickname(L"John Doe");
+    const auto nick = gen().get_nickname({.name = L"John Doe"});
     // plain() should be either the full name (name-based) or a word from
     // the wordlists. In both cases it must be non-empty.
     REQUIRE_FALSE(nick.plain().empty());
@@ -201,14 +220,14 @@ TEST_CASE("nickname - plain() returns original string", "[nickname]")
 
 TEST_CASE("nickname - implicit wstring conversion", "[nickname]")
 {
-    const auto nick = gen().get_nickname(L"Jane");
+    const auto nick = gen().get_nickname({.name = L"Jane"});
     std::wstring as_str = nick;
     REQUIRE_FALSE(as_str.empty());
 }
 
 TEST_CASE("nickname - operator<< streams internal string", "[nickname]")
 {
-    const auto nick = gen().get_nickname(L"Alice Bob");
+    const auto nick = gen().get_nickname({.name = L"Alice Bob"});
     std::wostringstream wos;
     wos << nick;
     REQUIRE(wos.str() == static_cast<std::wstring>(nick));
@@ -240,18 +259,18 @@ TEST_CASE("nng - has_wordlists() returns false when empty", "[nng][edge]")
     nng_test_access::wordlists(g) = saved;
 }
 
-TEST_CASE("nng - get_nickname() without name returns non-empty",
+TEST_CASE("nng - get_nickname(request) without name returns non-empty",
           "[nng][generation]")
 {
-    const auto nick = gen().get_nickname();
+    const auto nick = gen().get_nickname({});
     std::wstring result = nick;
     REQUIRE_FALSE(result.empty());
 }
 
-TEST_CASE("nng - get_nickname() with name returns non-empty",
+TEST_CASE("nng - get_nickname(request) with name returns non-empty",
           "[nng][generation]")
 {
-    const auto nick = gen().get_nickname(L"Alberto Bins Elis");
+    const auto nick = gen().get_nickname({.name = L"Alberto Bins Elis"});
     std::wstring result = nick;
     REQUIRE_FALSE(result.empty());
 }
@@ -263,7 +282,7 @@ TEST_CASE("nng - bulk generation produces variety", "[nng][generation]")
 
     for (int i = 0; i < 200; ++i)
     {
-        results.emplace_back(gen().get_nickname(L"Test User"));
+        results.emplace_back(gen().get_nickname({.name = L"Test User"}));
     }
 
     // Remove duplicates and check that we get at least some variety.
@@ -280,7 +299,7 @@ TEST_CASE("nng - wordlist-only generation (no name)", "[nng][generation]")
 
     for (int i = 0; i < 100; ++i)
     {
-        results.emplace_back(gen().get_nickname());
+        results.emplace_back(gen().get_nickname({}));
     }
 
     // All results should be non-empty.
@@ -301,7 +320,7 @@ TEST_CASE("Generated nicknames contain only printable or leet chars",
 {
     for (int i = 0; i < 500; ++i)
     {
-        std::wstring nick = gen().get_nickname(L"Diego Migotto");
+        std::wstring nick = gen().get_nickname({.name = L"Diego Migotto"});
         for (const auto& ch : nick)
         {
             // Each character should be printable or a common separator.
@@ -323,7 +342,7 @@ TEST_CASE("Numified nicknames end with digit characters", "[nng][numify]")
     bool found_numified = false;
     for (int i = 0; i < 1000; ++i)
     {
-        std::wstring nick = gen().get_nickname();
+        std::wstring nick = gen().get_nickname({});
         if (!nick.empty() && std::iswdigit(nick.back()) != 0)
         {
             found_numified = true;
@@ -349,7 +368,7 @@ TEST_CASE("Leet variants differ from original", "[nng][leet]")
     bool found_leet = false;
     for (int i = 0; i < 500; ++i)
     {
-        auto nick = gen().get_nickname(L"Alberto");
+        auto nick = gen().get_nickname({.name = L"Alberto"});
         std::wstring result = nick;
         // Check if any digit appears that wasn't in the original.
         for (const auto& ch : result)
@@ -379,7 +398,7 @@ TEST_CASE("Name-based nickname relates to input somehow",
     bool found_related = false;
     for (int i = 0; i < 500; ++i)
     {
-        auto nick = gen().get_nickname(L"John Smith");
+        auto nick = gen().get_nickname({.name = L"John Smith"});
         std::wstring result = nick;
         std::wstring lower_result;
         lower_result.resize(result.size());
@@ -402,7 +421,7 @@ TEST_CASE("Single-name input works", "[nng][name-based]")
     // Single name should not crash even though split produces one element.
     for (int i = 0; i < 100; ++i)
     {
-        REQUIRE_NOTHROW(gen().get_nickname(L"Mononym"));
+        REQUIRE_NOTHROW(gen().get_nickname({.name = L"Mononym"}));
     }
 }
 
@@ -410,7 +429,7 @@ TEST_CASE("Multi-part name works", "[nng][name-based]")
 {
     for (int i = 0; i < 100; ++i)
     {
-        std::wstring nick = gen().get_nickname(L"First Middle Last Suffix");
+        std::wstring nick = gen().get_nickname({.name = L"First Middle Last Suffix"});
         REQUIRE_FALSE(nick.empty());
     }
 }
@@ -420,16 +439,16 @@ TEST_CASE("Multi-part name works", "[nng][name-based]")
 // ---------------------------------------------------------------------------
 TEST_CASE("Empty name falls through to wordlist", "[nng][edge]")
 {
-    auto nick = gen().get_nickname(L"");
+    auto nick = gen().get_nickname({});
     std::wstring result = nick;
     REQUIRE_FALSE(result.empty());
 }
 
 TEST_CASE("Unicode name input does not crash", "[nng][edge]")
 {
-    REQUIRE_NOTHROW(gen().get_nickname(L"José García"));
-    REQUIRE_NOTHROW(gen().get_nickname(L"田中太郎"));
-    REQUIRE_NOTHROW(gen().get_nickname(L"Мария Иванова"));
+    REQUIRE_NOTHROW(gen().get_nickname({.name = L"José García"}));
+    REQUIRE_NOTHROW(gen().get_nickname({.name = L"田中太郎"}));
+    REQUIRE_NOTHROW(gen().get_nickname({.name = L"Мария Иванова"}));
 }
 
 // ---------------------------------------------------------------------------
@@ -441,11 +460,11 @@ TEST_CASE("Stress: 10000 generations without crash", "[nng][stress]")
     {
         if (i % 2 == 0)
         {
-            REQUIRE_NOTHROW(gen().get_nickname(L"Stress Test Name"));
+            REQUIRE_NOTHROW(gen().get_nickname({.name = L"Stress Test Name"}));
         }
         else
         {
-            REQUIRE_NOTHROW(gen().get_nickname());
+            REQUIRE_NOTHROW(gen().get_nickname({}));
         }
     }
 }
@@ -751,25 +770,25 @@ TEST_CASE("get_nickname throws when no name and no wordlists", "[nng][edge]")
     auto saved = nng_test_access::wordlists(g);
     nng_test_access::wordlists(g).clear();
 
-    REQUIRE_THROWS_AS(g.get_nickname(), std::invalid_argument);
+    REQUIRE_THROWS_AS(g.get_nickname({}), std::invalid_argument);
 
     // Restore wordlists.
     nng_test_access::wordlists(g) = saved;
 
     // Verify generator still works after restore.
-    REQUIRE_NOTHROW(g.get_nickname());
+    REQUIRE_NOTHROW(g.get_nickname({}));
 }
 
 // ---------------------------------------------------------------------------
 // Deterministic seeding
 // ---------------------------------------------------------------------------
-TEST_CASE("get_nickname(name, seed) is deterministic", "[nng][seeding]")
+TEST_CASE("get_nickname(request, seed) is deterministic", "[nng][seeding]")
 {
     auto& g = gen();
     constexpr std::uint64_t test_seed{12345};
 
-    auto nick1 = g.get_nickname(L"John Doe", test_seed);
-    auto nick2 = g.get_nickname(L"John Doe", test_seed);
+    auto nick1 = g.get_nickname({.name = L"John Doe"}, test_seed);
+    auto nick2 = g.get_nickname({.name = L"John Doe"}, test_seed);
 
     REQUIRE(static_cast<std::wstring>(nick1) ==
             static_cast<std::wstring>(nick2));
@@ -781,8 +800,8 @@ TEST_CASE("get_nickname(empty, seed) is deterministic", "[nng][seeding]")
     auto& g = gen();
     constexpr std::uint64_t test_seed{99999};
 
-    auto nick1 = g.get_nickname(L"", test_seed);
-    auto nick2 = g.get_nickname(L"", test_seed);
+    auto nick1 = g.get_nickname({}, test_seed);
+    auto nick2 = g.get_nickname({}, test_seed);
 
     REQUIRE(static_cast<std::wstring>(nick1) ==
             static_cast<std::wstring>(nick2));
@@ -795,12 +814,12 @@ TEST_CASE("different seeds produce different nicknames", "[nng][seeding]")
     // Over a range of seeds, at least some should differ.
     bool found_different = false;
     auto baseline = static_cast<std::wstring>(
-        g.get_nickname(L"Test Player", 1));
+        g.get_nickname({.name = L"Test Player"}, 1));
 
     for (std::uint64_t s = 2; s <= 100; ++s)
     {
         auto other = static_cast<std::wstring>(
-            g.get_nickname(L"Test Player", s));
+            g.get_nickname({.name = L"Test Player"}, s));
         if (other != baseline)
         {
             found_different = true;
@@ -815,7 +834,7 @@ TEST_CASE("nickname::seed() returns the seed used", "[nng][seeding]")
     auto& g = gen();
     constexpr std::uint64_t test_seed{42};
 
-    auto nick = g.get_nickname(L"Alice Bob", test_seed);
+    auto nick = g.get_nickname({.name = L"Alice Bob"}, test_seed);
     REQUIRE(nick.seed() == test_seed);
 }
 
@@ -823,68 +842,54 @@ TEST_CASE("nickname::seed() can replay the same nickname", "[nng][seeding]")
 {
     auto& g = gen();
 
-    auto nick1 = g.get_nickname(L"Carlos Mesa");
+    auto nick1 = g.get_nickname({.name = L"Carlos Mesa"});
     auto replay_seed = nick1.seed();
 
-    auto nick2 = g.get_nickname(L"Carlos Mesa", replay_seed);
+    auto nick2 = g.get_nickname({.name = L"Carlos Mesa"}, replay_seed);
     REQUIRE(static_cast<std::wstring>(nick1) ==
             static_cast<std::wstring>(nick2));
 }
 
-TEST_CASE("seed() produces deterministic sequence", "[nng][seeding]")
+TEST_CASE("nickname_request defaults select wordlists", "[nng][request]")
 {
     auto& g = gen();
-
-    g.seed(777);
-    auto a1 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
-    auto a2 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
-    auto a3 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
-
-    g.seed(777);
-    auto b1 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
-    auto b2 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
-    auto b3 = static_cast<std::wstring>(g.get_nickname(L"Seq Test"));
-
-    REQUIRE(a1 == b1);
-    REQUIRE(a2 == b2);
-    REQUIRE(a3 == b3);
-
-    // Restore non-deterministic state.
-    g.unseed();
+    const dasmig::nickname_request request{};
+    REQUIRE(request.name.empty());
+    REQUIRE(g.get_nickname(request, 42).to_json() ==
+            g.get_nickname({.name = L""}, 42).to_json());
+    REQUIRE(g.get_nickname(request, 42).to_json() ==
+            g.get_nickname({.name = L"   "}, 42).to_json());
+    REQUIRE_FALSE(g.get_nickname(request).plain().empty());
 }
 
-TEST_CASE("unseed() restores non-deterministic behavior", "[nng][seeding]")
+TEST_CASE("requests do not retain generation choices", "[nng][request]")
 {
-    auto& g = gen();
-
-    g.seed(1234);
-    auto seeded = static_cast<std::wstring>(g.get_nickname(L"Unseed Test"));
-
-    g.unseed();
-
-    // After unseeding, generating many nicknames should eventually produce
-    // something different from the seeded result.
-    bool found_different = false;
-    for (int i = 0; i < 200; ++i)
+    dasmig::nng g;
+    dasmig::nickname_request request{.name = L"Alice Smith"};
+    for (std::uint64_t seed = 0; seed < 50; ++seed)
     {
-        auto nick = static_cast<std::wstring>(
-            g.get_nickname(L"Unseed Test"));
-        if (nick != seeded)
-        {
-            found_different = true;
-            break;
-        }
+        REQUIRE(g.get_nickname(request, seed).plain() == request.name);
+        REQUIRE(g.get_nickname({.name = L"Bob Jones"}, seed).plain() == L"Bob Jones");
+        REQUIRE(g.get_nickname(request, seed).plain() == L"Alice Smith");
     }
-    REQUIRE(found_different);
+    request.name.clear();
+    REQUIRE_THROWS_AS(g.get_nickname(request), std::invalid_argument);
+    REQUIRE_THROWS_AS(g.get_nickname(request, 42), std::invalid_argument);
+    REQUIRE_THROWS_AS(g.get_nickname({.name = L"   "}, 42), std::invalid_argument);
 }
 
-TEST_CASE("seed() chaining works", "[nng][seeding]")
+TEST_CASE("seeded request is const and leaves the instance engine untouched",
+          "[nng][request][seeding]")
 {
     auto& g = gen();
-
-    // seed() and unseed() return *this for chaining.
-    REQUIRE(&g.seed(100) == &g);
-    REQUIRE(&g.unseed() == &g);
+    auto expected_engine = nng_test_access::engine(g);
+    const auto& const_gen = g;
+    const dasmig::nickname_request request{.name = L"Test Player"};
+    const auto expected = const_gen.get_nickname(request, 0).to_json();
+    REQUIRE(g.get_nickname({}).seed() == expected_engine());
+    REQUIRE(const_gen.get_nickname(request, 0).to_json() == expected);
+    REQUIRE(g.get_nickname(request).seed() == expected_engine());
+    REQUIRE(const_gen.get_nickname(request, 0).to_json() == expected);
 }
 
 // ===== Multi-instance tests ================================================
@@ -897,7 +902,7 @@ TEST_CASE("independent instance can load and generate", "[nng][multi-instance]")
     gen2.load(resource_path());
     REQUIRE(gen2.has_wordlists());
 
-    auto nick = gen2.get_nickname(L"Multi Instance");
+    auto nick = gen2.get_nickname({.name = L"Multi Instance"});
     REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
 }
 
@@ -912,7 +917,7 @@ TEST_CASE("independent instances have separate word lists",
     REQUIRE_FALSE(b.has_wordlists());
 }
 
-TEST_CASE("independent instances have separate seeding",
+TEST_CASE("independent instances replay explicit call seeds",
           "[nng][multi-instance]")
 {
     dasmig::nng a;
@@ -923,18 +928,10 @@ TEST_CASE("independent instances have separate seeding",
     constexpr std::uint64_t seed_a = 111;
     constexpr std::uint64_t seed_b = 222;
 
-    a.seed(seed_a);
-    b.seed(seed_b);
-
-    auto nick_a = static_cast<std::wstring>(a.get_nickname(L"Seed Test"));
-    auto nick_b = static_cast<std::wstring>(b.get_nickname(L"Seed Test"));
-
-    // Re-seed and regenerate — each should replay independently.
-    a.seed(seed_a);
-    b.seed(seed_b);
-
-    auto nick_a2 = static_cast<std::wstring>(a.get_nickname(L"Seed Test"));
-    auto nick_b2 = static_cast<std::wstring>(b.get_nickname(L"Seed Test"));
+    auto nick_a = static_cast<std::wstring>(a.get_nickname({.name = L"Seed Test"}, seed_a));
+    auto nick_b = static_cast<std::wstring>(b.get_nickname({.name = L"Seed Test"}, seed_b));
+    auto nick_a2 = static_cast<std::wstring>(a.get_nickname({.name = L"Seed Test"}, seed_a));
+    auto nick_b2 = static_cast<std::wstring>(b.get_nickname({.name = L"Seed Test"}, seed_b));
 
     REQUIRE(nick_a == nick_a2);
     REQUIRE(nick_b == nick_b2);
@@ -944,22 +941,21 @@ TEST_CASE("moved instance retains state", "[nng][multi-instance]")
 {
     dasmig::nng src;
     src.load(resource_path());
-    src.seed(42);
-    auto expected = static_cast<std::wstring>(src.get_nickname(L"Move Test"));
+    const auto expected = src.get_nickname({.name = L"Move Test"}, 42).to_json();
+    auto expected_engine = nng_test_access::engine(src);
 
-    // Re-seed to replay, then move.
-    src.seed(42);
     dasmig::nng dst = std::move(src);
-    auto actual = static_cast<std::wstring>(dst.get_nickname(L"Move Test"));
+    const auto actual = dst.get_nickname({.name = L"Move Test"}, 42).to_json();
 
     REQUIRE(expected == actual);
+    REQUIRE(dst.get_nickname({}).seed() == expected_engine());
 }
 
 TEST_CASE("singleton still works after multi-instance changes",
           "[nng][multi-instance]")
 {
     auto& g = dasmig::nng::instance();
-    auto nick = g.get_nickname(L"Singleton Check");
+    auto nick = g.get_nickname({.name = L"Singleton Check"});
     REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
 }
 
@@ -1003,10 +999,9 @@ TEST_CASE("leetify does not stack-overflow on unmappable input",
     // recursion. Now capped at max depth.
     dasmig::nng g;
     g.load(resource_path());
-    g.seed(1);
-    for (int i = 0; i < 20; ++i)
+    for (std::uint64_t seed = 0; seed < 20; ++seed)
     {
-        auto nick = g.get_nickname(L"M");
+        auto nick = g.get_nickname({.name = L"M"}, seed);
         REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
     }
 }
@@ -1018,7 +1013,7 @@ TEST_CASE("name-only generation works without wordlists", "[nng][robustness]")
     // Every call should succeed (previously 75% threw).
     for (int i = 0; i < 50; ++i)
     {
-        auto nick = g.get_nickname(L"John Smith");
+        auto nick = g.get_nickname({.name = L"John Smith"});
         REQUIRE_FALSE(static_cast<std::wstring>(nick).empty());
     }
 }
@@ -1026,7 +1021,7 @@ TEST_CASE("name-only generation works without wordlists", "[nng][robustness]")
 TEST_CASE("no-name no-wordlists still throws", "[nng][robustness]")
 {
     dasmig::nng g;
-    REQUIRE_THROWS_AS(g.get_nickname(), std::invalid_argument);
+    REQUIRE_THROWS_AS(g.get_nickname({}), std::invalid_argument);
 }
 
 TEST_CASE("64-bit seeds differing in upper bits produce different nicknames",
@@ -1043,9 +1038,9 @@ TEST_CASE("64-bit seeds differing in upper bits produce different nicknames",
     for (int i = 0; i < 100; ++i)
     {
         auto a = static_cast<std::wstring>(
-            g.get_nickname(L"Bit Test", seed_lo + i));
+            g.get_nickname({.name = L"Bit Test"}, seed_lo + i));
         auto b = static_cast<std::wstring>(
-            g.get_nickname(L"Bit Test", seed_hi + i));
+            g.get_nickname({.name = L"Bit Test"}, seed_hi + i));
         if (a != b)
         {
             found_different = true;
@@ -1068,23 +1063,23 @@ TEST_CASE("known answers for fixed seeds", "[kat]")
     REQUIRE(g.data_hash() == 0x87dd5622316ce1feULL);
     REQUIRE(g.list_names() == std::vector<std::string>{"adjectives", "animals", "japanese"});
 
-    REQUIRE(g.get_nickname(L"Alberto Bins Elis", 1).to_json() ==
+    REQUIRE(g.get_nickname({.name = L"Alberto Bins Elis"}, 1).to_json() ==
             R"({"nickname":"Molee","source":"Mole","signature":{"seed":"0000000000000001","data":"87dd5622316ce1fe"}})");
-    REQUIRE(g.get_nickname(L"", 2).to_json() ==
+    REQUIRE(g.get_nickname({}, 2).to_json() ==
             R"({"nickname":"ioiN","source":"Nioi","signature":{"seed":"0000000000000002","data":"87dd5622316ce1fe"}})");
 
     // Accented names: the case mapping does not depend on the locale.
     const std::wstring accented = L"José García Élodie";
-    REQUIRE(std::wstring{g.get_nickname(accented, 12)} == L"ÉésoJ");
-    REQUIRE(std::wstring{g.get_nickname(accented, 23)} == L"Jgé");
-    REQUIRE(std::wstring{g.get_nickname(accented, 25)} == L"EIDOLÉ");
-    REQUIRE(std::wstring{g.get_nickname(accented, 26)} == L"XgarélodiE");
-    REQUIRE(std::wstring{g.get_nickname(accented, 35)} == L"JosÉ");
+    REQUIRE(std::wstring{g.get_nickname({.name = accented}, 12)} == L"ÉésoJ");
+    REQUIRE(std::wstring{g.get_nickname({.name = accented}, 23)} == L"Jgé");
+    REQUIRE(std::wstring{g.get_nickname({.name = accented}, 25)} == L"EIDOLÉ");
+    REQUIRE(std::wstring{g.get_nickname({.name = accented}, 26)} == L"XgarélodiE");
+    REQUIRE(std::wstring{g.get_nickname({.name = accented}, 35)} == L"JosÉ");
 
     std::uint64_t h = 0xcbf29ce484222325ULL;
     for (std::uint64_t s = 0; s < 10000; ++s)
     {
-        for (const char c : g.get_nickname(s % 2 == 0 ? L"" : L"Alberto Bins Elis", s).to_json())
+        for (const char c : g.get_nickname({.name = s % 2 == 0 ? L"" : L"Alberto Bins Elis"}, s).to_json())
         {
             h ^= static_cast<unsigned char>(c);
             h *= 0x100000001b3ULL;
@@ -1111,7 +1106,7 @@ TEST_CASE("case changes use a fixed mapping", "[case]")
 
 TEST_CASE("to_json and signature", "[json]")
 {
-    const auto n = gen().get_nickname(L"Ana Lima", 9);
+    const auto n = gen().get_nickname({.name = L"Ana Lima"}, 9);
     REQUIRE(n.seed() == 9);
     REQUIRE(n.signature().data == gen().data_hash());
     const auto json = n.to_json();

@@ -28,7 +28,7 @@ The library currently supports the following:
   - Animals
   - Japanese
 
-- **Deterministic Seeding**. Per-call `get_nickname(name, seed)` for reproducible results, generator-level `seed()` / `unseed()` for deterministic sequences, and `nickname::seed()` for replaying a previous generation.
+- **Request-first API**. `nickname_request` holds per-call choices; `get_nickname(request)` generates normally and `get_nickname(request, seed)` produces reproducible results. `nickname::seed()` records the seed for replay.
 
 - **Identical Everywhere**. A seed gives the same nickname on every compiler, standard library and CPU (GCC, Clang, MSVC, Emscripten; x86-64 and ARM64), checked by known-answer tests. Case changes do not depend on the locale.
 
@@ -77,25 +77,28 @@ using nng = dasmig::nng;
 nng::instance().load("path/to/resources");
 
 // Generate a nickname based on a player name.
-std::wstring github_nickname = nng::instance().get_nickname(L"Kind Github User");
+std::wstring github_nickname = nng::instance().get_nickname({.name = L"Kind Github User"});
 
 // Generate a random nickname from the loaded word lists.
-std::wstring random_nickname = nng::instance().get_nickname();
+std::wstring random_nickname = nng::instance().get_nickname({});
 
 // Access the original source string.
-auto nick = nng::instance().get_nickname(L"Jane Doe");
+const dasmig::nickname_request request{.name = L"Jane Doe"};
+auto nick = nng::instance().get_nickname(request);
 std::wcout << nick.plain() << L" -> " << nick << L'\n';
 
 // Deterministic generation — same seed always produces the same nickname.
-auto seeded = nng::instance().get_nickname(L"Jane Doe", 42);
+auto seeded = nng::instance().get_nickname(request, 42);
 
 // Replay a previous nickname using its seed.
-auto replay = nng::instance().get_nickname(L"Jane Doe", seeded.seed());
+auto replay = nng::instance().get_nickname(request, seeded.seed());
 
-// Seed the engine for a deterministic sequence.
-nng::instance().seed(100);
-// ... generate nicknames ...
-nng::instance().unseed(); // restore non-deterministic state
+// Deterministic sequences use an explicit seed for each call.
+for (std::uint64_t seed = 100; seed < 103; ++seed)
+{
+    auto next = nng::instance().get_nickname(request, seed);
+    std::wcout << next << L'\n';
+}
 
 // The result as JSON, with the seed and the word lists it came from.
 std::string json = seeded.to_json();
@@ -106,8 +109,14 @@ nng::instance().extend("mods/planets.words");
 // Independent instance — separate word lists and random engine.
 nng my_gen;
 my_gen.load("path/to/resources");
-std::wstring nick2 = my_gen.get_nickname(L"Own Instance");
+std::wstring nick2 = my_gen.get_nickname({.name = L"Own Instance"});
 ```
+
+`nickname_request{}.name` is empty by default, selecting from word lists. A
+non-empty name retains the existing 25% name-derived / 75% word-list behavior
+(always name-derived without lists). Resource loading stays on the generator.
+The former string/no-argument overloads and generator-level `seed()` /
+`unseed()` have been removed; see [Request API migration](doc/usage.md#request-api-migration).
 
 For the complete feature guide — transforms, word lists, extending data, compiled-in data, thread safety, and more — see the **[Usage Guide](doc/usage.md)**.
 

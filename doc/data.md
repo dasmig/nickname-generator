@@ -20,6 +20,11 @@ Version 2 removed repeated words, which v1 counted twice: 38 in `animals` (Dog, 
 
 ## Generation Model
 
+The per-call input is `nickname_request`; its `name` defaults to empty.
+`get_nickname(request)` draws a call seed from the instance's random engine,
+and `get_nickname(request, seed)` uses the supplied seed without advancing
+that engine. Requests do not load or change word lists.
+
 1. **Source.** With a name, one nickname in four is built from it (always, if no list is loaded): first name, last name, any part (counted twice), initials, a mix of the last two parts, first name plus last initial, first initial plus last name, or one part with its inner vowels removed, each equally likely. Otherwise a list is chosen uniformly, then a word from it uniformly.
 2. **Decoration**, with probability one half: either one of reverse, double the first a/e/i/o, replace one letter with a leet digit, or replace up to two (retried while the result does not change, at most 7 times), or one of add X, reverse, end in y, add digits, add a dash, end in ing.
 3. **Case**: snake case first with probability 1%, then one of upper (4/29), lower (8/29), as is (2/29), sentence (5/29), camel (2/29), last letter capital (2/29), first and last capital (3/29), alternating (1/29), random per letter (1/29) or one random capital (1/29).
