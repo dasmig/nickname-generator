@@ -21,6 +21,8 @@ The library currently supports the following:
 
 - **Nickname Generation**. The library randomly generates a nickname based on either a name or a list of words.
 
+- **Batch Generation**. Generate thousands of results from one seed, on several threads with the same output for any thread count, optionally unique by a key, and stream them as JSON Lines or CSV (see the usage guide).
+
 - **Leetifying Process**. After selecting a name/word it will randomly apply any number of customizations to uniquefy the nickname.
 
 - **Word Lists Supported**. Currently the following word lists are supported and a matching database is packed together with the library (see [Data and Method](doc/data.md)):
