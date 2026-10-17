@@ -7,21 +7,19 @@
 [![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/dasmig/nickname-generator/master/LICENSE.MIT)
 [![CI](https://github.com/dasmig/nickname-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/dasmig/nickname-generator/actions/workflows/ci.yml)
 [![GitHub Releases](https://img.shields.io/github/release/dasmig/nickname-generator.svg)](https://github.com/dasmig/nickname-generator/releases)
-[![GitHub Issues](https://img.shields.io/github/issues/dasmig/nickname-generator.svg)](https://github.com/dasmig/nickname-generator/issues)
 [![C++23](https://img.shields.io/badge/standard-C%2B%2B23-blue.svg)](https://en.cppreference.com/w/cpp/23)
 [![Header-only](https://img.shields.io/badge/type-header--only-green.svg)](https://github.com/dasmig/nickname-generator#integration)
-[![Platform](https://img.shields.io/badge/platform-linux%20|%20windows%20|%20macos-lightgrey.svg)](https://github.com/dasmig/nickname-generator)
 [![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-blue.svg)](https://dasmig.github.io/nickname-generator/)
 
 **[API Reference](https://dasmig.github.io/nickname-generator/)** · **[Usage Guide](doc/usage.md)** · **[Releases](https://github.com/dasmig/nickname-generator/releases)**
+
+Gamer-style nicknames made from names or word lists.
 
 ## Features
 
 The library currently supports the following:
 
 - **Nickname Generation**. The library randomly generates a nickname based on either a name or a list of words.
-
-- **Batch Generation**. Generate thousands of results from one seed, on several threads with the same output for any thread count, optionally unique by a key, and stream them as JSON Lines or CSV (see the usage guide).
 
 - **Leetifying Process**. After selecting a name/word it will randomly apply any number of customizations to uniquefy the nickname.
 
@@ -32,6 +30,10 @@ The library currently supports the following:
 
 - **Request-first API**. `nickname_request` holds per-call choices; `get_nickname(request)` generates normally and `get_nickname(request, seed)` produces reproducible results. `nickname::seed()` records the seed for replay.
 
+- **Resource Inspection**. `has_wordlists()` and `list_names()` let you verify what is loaded before generating.
+
+- **Batch Generation**. Generate thousands of results from one seed, on several threads with the same output for any thread count, optionally unique by a key, and stream them as JSON Lines or CSV (see the usage guide).
+
 - **Identical Everywhere**. A seed gives the same nickname on every compiler, standard library and CPU (GCC, Clang, MSVC, Emscripten; x86-64 and ARM64), checked by known-answer tests. Case changes do not depend on the locale.
 
 - **Extensible Word Lists**. Load your own lists, or add and remove words in the shipped ones, from `.words` and `.tsv` files or text (`extend()`), checked before they are applied.
@@ -40,28 +42,19 @@ The library currently supports the following:
 
 - **Compiled-in Data**. Define `DASMIG_NICKNAME_EMBED` to build the word lists into the program, for WebAssembly and other builds without files.
 
-- **Resource Inspection**. `has_wordlists()` and `list_names()` let you verify what is loaded before generating.
-
 - **Multi-Instance Support**. Construct independent `nng` instances with their own word lists and random engine — ideal for embedding inside other generators. The classic `instance()` singleton is still available for convenience.
 
-
 ## Integration
- 
-[`nicknamegen.hpp`](https://github.com/dasmig/nickname-generator/blob/master/dasmig/nicknamegen.hpp) is the library [released here](https://github.com/dasmig/nickname-generator/releases). Keep [`core.hpp`](https://github.com/dasmig/nickname-generator/blob/master/dasmig/core.hpp) and the [`core/`](https://github.com/dasmig/nickname-generator/tree/master/dasmig/core) directory ([dasmig-core](https://github.com/dasmig/dasmig-core)) in the same directory. You need to add
+
+[`nicknamegen.hpp`](https://github.com/dasmig/nickname-generator/blob/master/dasmig/nicknamegen.hpp) is the library [released here](https://github.com/dasmig/nickname-generator/releases). Keep [`core.hpp`](https://github.com/dasmig/nickname-generator/blob/master/dasmig/core.hpp) and the [`core/`](https://github.com/dasmig/nickname-generator/tree/master/dasmig/core) directory ([dasmig-core](https://github.com/dasmig/dasmig-core)) in the same directory. Add
 
 ```cpp
 #include <dasmig/nicknamegen.hpp>
-
-// For convenience.
-using nng = dasmig::nng;
 ```
 
-to the files you want to generate nicknames and set the necessary switches to enable C++23 (e.g., `-std=c++23` for GCC and Clang).
-
-Additionally you must supply the nickname generator with the [`resources`](https://github.com/dasmig/nickname-generator/tree/master/resources) folder also available in the [release](https://github.com/dasmig/nickname-generator/releases), or define `DASMIG_NICKNAME_EMBED` to compile the word lists in.
+to the files you want to use it in, and supply the [`resources`](https://github.com/dasmig/nickname-generator/tree/master/resources) folder (or define `DASMIG_NICKNAME_EMBED`).
 
 Version 2 changes every seeded result; see [Migrating from v1](doc/usage.md#migrating-from-v1).
-
 
 ## Usage
 
@@ -125,24 +118,14 @@ For the complete feature guide — transforms, word lists, extending data, compi
 ## Building
 
 ```bash
-# Example
-make
-
-# Tests (and with the word lists compiled in)
-make test
-make test-embed
-
-# Benchmarks (results in build/bench.tsv)
-make bench
-
-# Code coverage
-make coverage
-
-# API docs
-make docs
-
-# Regenerate the compiled-in word lists
-make embed
+make            # example
+make test       # tests
+make bench      # benchmarks, results in build/bench.tsv
+make test-embed # tests with the lite tier compiled in
+make coverage   # code coverage
+make lint       # clang-tidy
+make docs       # API docs
+make embed      # regenerate dasmig/nicknamegen_data.hpp from resources/lite
 ```
 
 ## Compiler Support
@@ -151,24 +134,32 @@ Tested with:
 - Clang 18+ (`-std=c++23`)
 - GCC 14+ (`-std=c++23`)
 - MSVC 19.38+ (`/std:c++latest`)
+- Emscripten 3.1.74
 
 ## Dependencies
 
 | Dependency | Version | Bundled | Purpose |
 |-----------|---------|---------|---------|
-| [dasmig-core](https://github.com/dasmig/dasmig-core) | 1.0 | Yes (`core.hpp`, `core/`) | Platform-independent random engine and choices, data layers, JSON |
+| [dasmig-core](https://github.com/dasmig/dasmig-core) | 1.0 | Yes (`core.hpp`, `core/`) | Platform-independent random engine and distributions, data layers, JSON |
 | [Catch2](https://github.com/catchorg/Catch2) | 3.x | Yes (amalgamated) | Unit testing |
 
 ## Related Libraries
 
 | Library | Description |
 |---------|-------------|
-| [name-generator](https://github.com/dasmig/name-generator) | Culturally appropriate full names |
-| [birth-generator](https://github.com/dasmig/birth-generator) | Demographically plausible birthdays |
+| [address-generator](https://github.com/dasmig/address-generator) | Postal addresses with real streets by place |
 | [biodata-generator](https://github.com/dasmig/biodata-generator) | Procedural human physical characteristics |
+| [birth-generator](https://github.com/dasmig/birth-generator) | Demographically plausible birthdays |
 | [city-generator](https://github.com/dasmig/city-generator) | Weighted city selection by population |
 | [country-generator](https://github.com/dasmig/country-generator) | Weighted country selection by population |
+| [email-generator](https://github.com/dasmig/email-generator) | Email addresses in each country's style |
 | [entity-generator](https://github.com/dasmig/entity-generator) | ECS-based entity generation |
+| [interest-generator](https://github.com/dasmig/interest-generator) | Religion, hobbies and favourite media by country, age and sex |
+| [name-generator](https://github.com/dasmig/name-generator) | Culturally appropriate full names |
+| [occupation-generator](https://github.com/dasmig/occupation-generator) | Employment status, education and occupation by country, age and sex |
+| [persona-generator](https://github.com/dasmig/persona-generator) | Complete characters composed from the other generators |
+| [phone-generator](https://github.com/dasmig/phone-generator) | Phone numbers valid in each country's numbering plan |
+| [trait-generator](https://github.com/dasmig/trait-generator) | Personality traits with conflicts, synergies and Big Five axes |
 
 ## License
 
