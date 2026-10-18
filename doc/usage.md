@@ -12,12 +12,14 @@ This guide covers every feature of the nickname-generator library in detail. For
 <li><a href="#generating-nicknames">Generating Nicknames</a></li>
 <li><a href="#nickname-transforms">Nickname Transforms</a></li>
 <li><a href="#word-lists">Word Lists</a></li>
+<li><a href="#tags">Tags</a></li>
 <li><a href="#thread-safety">Thread Safety</a></li>
 <li><a href="#seeding-and-deterministic-generation">Seeding and Deterministic Generation</a></li>
 <li><a href="#multi-instance-support">Multi-Instance Support</a></li>
 <li><a href="#extending-data">Extending Data</a></li>
 <li><a href="#replay-and-json">Replay and JSON</a></li>
 <li><a href="#compiled-in-data">Compiled-in Data</a></li>
+<li><a href="#migrating-to-v4">Migrating to v4</a></li>
 <li><a href="#request-api-migration">Request API Migration</a></li>
 <li><a href="#migrating-from-v1">Migrating from v1</a></li>
 <li><a href="#error-reference">Error Reference</a></li>
@@ -151,18 +153,35 @@ There is also a 1 % chance of `snake_case` being applied first (`Nick_Name`).
 
 ## Word Lists
 
-The library ships three word lists in `resources/lite/` (see [Data and Method](data.md)):
+The library ships nine plain word lists and 43 theme lists in `resources/lite/` (see [Data and Method](data.md)):
 
 | File | Contents |
 |------|----------|
 | `adjectives.words` | English adjectives |
 | `animals.words` | Animal names |
 | `japanese.words` | Japanese-themed words |
+| `colors.words`, `food.words`, `nature.words`, `space.words`, `myth.words`, `gems.words` | Colours, food, weather and plants, astronomy, creatures and gods, gemstones |
+| `tag_<tag>.words` | A theme, drawn from when a request lists the tag (below) |
 
 A `.words` file has one word per line; the list's name is the file name.
 Lists of your own are added with `extend()` (see Extending Data).
 A list is chosen uniformly, then a word from it, so a short list's words come
 up more often than a long list's.
+
+## Tags
+
+A request can carry tags, plain strings that name themes, so a character's nickname can suit the character. They are the tags that `trait-generator` and `occupation-generator` put on traits and jobs (`"combat"`, `"leadership"`, `"manual"`, ...); the library does not depend on either, and any strings work.
+
+```cpp
+const dasmig::nickname_request request{.tags = {"combat", "leadership"}};
+auto nick = dasmig::nng::instance().get_nickname(request, 42);
+// about one in three comes from the combat and leadership themes:
+// "Gladiator", "Marshal", ...
+```
+
+With at least one tag that has a theme (`tag_<tag>.words`), one nickname in three is a word of a theme: a theme is chosen uniformly among the request's themes (a repeated tag counts once), then a word from it. The decorations and cases apply as to any other word. The rest of the time the nickname is drawn as without tags. A tag without a theme is ignored, so a request with only unknown tags gives exactly the nickname of the same request without tags. When the request also has a name, the name takes its quarter first, then the themes their third of the rest.
+
+Themes are lists like the others: `extend()` adds words to a shipped theme, and a file named `tag_pirate.words` adds a new one. Theme words are never drawn without their tag. The tags are not part of the replay signature, so keep them with the seed.
 
 ## Thread Safety
 
@@ -350,6 +369,10 @@ Define `DASMIG_NICKNAME_EMBED` before including the header to compile the word l
 ```
 
 `dasmig/nicknamegen_data.hpp` is generated from `resources/lite` by `make embed`; CI checks it is up to date.
+
+## Migrating to v4
+
+Version 4 adds six plain word lists, so the same seed gives a different nickname than in v3 (a list is chosen uniformly among nine instead of three). The API only grows: `nickname_request` has a new `tags` field. Update any known answers; the `data_hash()` changes with the word lists.
 
 ## Request API Migration
 

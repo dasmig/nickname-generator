@@ -1060,13 +1060,16 @@ TEST_CASE("known answers for fixed seeds", "[kat]")
 {
     dasmig::nng g;
     g.load(resource_path());
-    REQUIRE(g.data_hash() == 0x87dd5622316ce1feULL);
-    REQUIRE(g.list_names() == std::vector<std::string>{"adjectives", "animals", "japanese"});
+    REQUIRE(g.data_hash() == 0x7f65fd3034dd82a6ULL);
+    const auto lists = g.list_names();
+    REQUIRE(lists.size() == 52);
+    REQUIRE(std::ranges::count_if(lists, [](const std::string& n) { return n.starts_with("tag_"); }) == 43);
+    REQUIRE(std::ranges::find(lists, "colors") != lists.end());
 
     REQUIRE(g.get_nickname({.name = L"Alberto Bins Elis"}, 1).to_json() ==
-            R"({"nickname":"Molee","source":"Mole","signature":{"seed":"0000000000000001","data":"87dd5622316ce1fe"}})");
+            R"({"nickname":"Mustaard","source":"Mustard","signature":{"seed":"0000000000000001","data":"7f65fd3034dd82a6"}})");
     REQUIRE(g.get_nickname({}, 2).to_json() ==
-            R"({"nickname":"ioiN","source":"Nioi","signature":{"seed":"0000000000000002","data":"87dd5622316ce1fe"}})");
+            R"({"nickname":"elbmarB","source":"Bramble","signature":{"seed":"0000000000000002","data":"7f65fd3034dd82a6"}})");
 
     // Accented names: the case mapping does not depend on the locale.
     const std::wstring accented = L"José García Élodie";
@@ -1085,7 +1088,7 @@ TEST_CASE("known answers for fixed seeds", "[kat]")
             h *= 0x100000001b3ULL;
         }
     }
-    REQUIRE(h == 0xba2f70e6e6c8f7f5ULL);
+    REQUIRE(h == 0x27ca9abde95e174aULL);
 }
 
 TEST_CASE("case changes use a fixed mapping", "[case]")
@@ -1127,12 +1130,12 @@ TEST_CASE("extend adds lists and words, and removes words", "[extend]")
     // A new list from TSV text.
     const auto& info = g.extend_from_string("planets", "word\nMercury\nVenus\nMars\n", "planets.tsv");
     REQUIRE(info.added == 3);
-    REQUIRE(g.list_names().size() == 4);
+    REQUIRE(g.list_names().size() == 53);
     REQUIRE(g.data_hash() != hash);
 
     // Removing words; a list with no words left is not used.
     g.extend_from_string("planets", "word\tdisabled\nMercury\t1\nVenus\t1\nMars\t1\n", "cleanup");
-    REQUIRE(g.list_names().size() == 3);
+    REQUIRE(g.list_names().size() == 52);
 
     // Files: .words adds to the list named after the file.
     const auto dir = std::filesystem::temp_directory_path() / "nng_layer";
@@ -1166,7 +1169,7 @@ TEST_CASE("a directory layer is applied all or nothing", "[extend][errors]")
     }
     REQUIRE_THROWS_AS(g.extend(dir), dasmig::core::tsv_error);
     REQUIRE(g.data_hash() == hash); // a_good.words was not applied either
-    REQUIRE(g.list_names().size() == 3);
+    REQUIRE(g.list_names().size() == 52);
     std::filesystem::remove_all(dir);
 }
 
@@ -1184,7 +1187,7 @@ TEST_CASE("compiled-in data needs no files and matches them", "[embed]")
 
     REQUIRE(loaded);
     REQUIRE(g.layers("animals").front().source == "embedded:lite/animals.words");
-    REQUIRE(g.data_hash() == 0x87dd5622316ce1feULL); // same as the files
+    REQUIRE(g.data_hash() == 0x7f65fd3034dd82a6ULL); // same as the files
 }
 #endif
 
@@ -1253,5 +1256,148 @@ TEST_CASE("nickname batch: known answer of 10,000 items", "[batch][kat]")
     gen.for_each_nickname(request, {.count = 10000, .threads = 4}, 1,
                         [&](std::uint64_t, const dasmig::nickname& item)
                         { hash = dasmig::core::hash_combine(hash, dasmig::core::fnv1a64(item.to_json())); });
-    REQUIRE(hash == 0xfbeaaa209fbccaa7ULL);
+    REQUIRE(hash == 0xbdced950d33acb51ULL);
+}
+
+// ---------------------------------------------------------------------------
+// Themes: tags
+// ---------------------------------------------------------------------------
+
+namespace
+{
+// The words of the shipped tag_<tag>.words: the sources a themed nickname can have.
+std::set<std::wstring> theme_words(std::string_view tag)
+{
+    std::set<std::wstring> words;
+    const auto doc = dasmig::core::tsv_document::load(resource_path() / "lite" / ("tag_" + std::string{tag} + ".words"), {"word"});
+    for (const auto& row : doc.rows()) words.insert(dasmig::core::from_utf8(row["word"]));
+    return words;
+}
+} // namespace
+
+TEST_CASE("tags: a themed request draws a word of its theme about a third of the time", "[tags]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const auto combat = theme_words("combat");
+    REQUIRE_FALSE(combat.empty());
+
+    int themed = 0;
+    int plain = 0;
+    constexpr int n = 6000;
+    for (int i = 0; i < n; ++i)
+    {
+        const auto seed = static_cast<std::uint64_t>(i);
+        if (combat.contains(g.get_nickname({.tags = {"combat"}}, seed).plain())) ++themed;
+        if (combat.contains(g.get_nickname({}, seed).plain())) ++plain;
+    }
+    REQUIRE(themed > n * 0.30);
+    REQUIRE(themed < n * 0.37);
+    // Without tags the theme is not drawn on purpose; only words that a plain
+    // list also has (an animal such as Hawk) appear.
+    REQUIRE(plain < n * 0.005);
+}
+
+TEST_CASE("tags: unknown tags and no tags give the plain nickname", "[tags]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    for (std::uint64_t seed = 0; seed < 200; ++seed)
+    {
+        const auto plain = g.get_nickname({}, seed).to_json();
+        REQUIRE(g.get_nickname({.tags = {}}, seed).to_json() == plain);
+        REQUIRE(g.get_nickname({.tags = {"no_such_tag"}}, seed).to_json() == plain);
+    }
+}
+
+TEST_CASE("tags: a repeated tag does not raise the chance", "[tags]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    for (std::uint64_t seed = 0; seed < 200; ++seed)
+    {
+        REQUIRE(g.get_nickname({.tags = {"combat", "combat"}}, seed).to_json() ==
+                g.get_nickname({.tags = {"combat"}}, seed).to_json());
+    }
+}
+
+TEST_CASE("tags: several tags draw from each of their themes", "[tags]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const auto combat = theme_words("combat");
+    const auto stealth = theme_words("stealth");
+    bool saw_combat = false;
+    bool saw_stealth = false;
+    for (std::uint64_t seed = 0; seed < 2000; ++seed)
+    {
+        const auto source = g.get_nickname({.tags = {"combat", "stealth"}}, seed).plain();
+        saw_combat = saw_combat || combat.contains(source);
+        saw_stealth = saw_stealth || stealth.contains(source);
+    }
+    REQUIRE(saw_combat);
+    REQUIRE(saw_stealth);
+}
+
+TEST_CASE("tags: a name takes the nickname first", "[tags]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const auto theme = theme_words("combat");
+    // A quarter of the nicknames come from the name; a third of the rest are themed.
+    int themed = 0;
+    constexpr int n = 4000;
+    for (int i = 0; i < n; ++i)
+    {
+        const auto nick = g.get_nickname({.name = L"Alberto Bins Elis", .tags = {"combat"}}, static_cast<std::uint64_t>(i));
+        if (theme.contains(nick.plain())) ++themed;
+    }
+    REQUIRE(themed > n * 0.20);
+    REQUIRE(themed < n * 0.30);
+}
+
+TEST_CASE("tags: the same seed replays", "[tags][seed]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const dasmig::nickname_request request{.tags = {"combat", "leadership"}};
+    for (std::uint64_t seed = 0; seed < 50; ++seed)
+        REQUIRE(g.get_nickname(request, seed).to_json() == g.get_nickname(request, seed).to_json());
+}
+
+TEST_CASE("tags: your own tag_ list is a theme and extends a shipped one", "[tags][extend]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    g.extend_from_string("tag_pirate", "word\nBlackbeard\nCutlass\n", "pirate.tsv");
+    bool saw = false;
+    for (std::uint64_t seed = 0; seed < 400 && !saw; ++seed)
+    {
+        const auto source = g.get_nickname({.tags = {"pirate"}}, seed).plain();
+        saw = source == L"Blackbeard" || source == L"Cutlass";
+    }
+    REQUIRE(saw);
+
+    // Adding to a shipped theme keeps its words.
+    g.extend_from_string("tag_combat", "word\nValkyrion\n", "combat.tsv");
+    const auto combat = theme_words("combat");
+    bool saw_new = false;
+    bool saw_old = false;
+    for (std::uint64_t seed = 0; seed < 4000; ++seed)
+    {
+        const auto source = g.get_nickname({.tags = {"combat"}}, seed).plain();
+        saw_new = saw_new || source == L"Valkyrion";
+        saw_old = saw_old || combat.contains(source);
+    }
+    REQUIRE(saw_new);
+    REQUIRE(saw_old);
+}
+
+TEST_CASE("tags: with only themes loaded, a tagged request uses them", "[tags]")
+{
+    dasmig::nng g;
+    g.extend_from_string("tag_pirate", "word\nBlackbeard\n", "pirate.tsv");
+    REQUIRE_FALSE(g.has_wordlists());
+    REQUIRE(g.get_nickname({.tags = {"pirate"}}, 1).plain() == L"Blackbeard");
+    REQUIRE_THROWS_AS(g.get_nickname({}, 1), std::invalid_argument);
 }

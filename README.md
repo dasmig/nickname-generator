@@ -27,6 +27,9 @@ The library currently supports the following:
   - Adjectives
   - Animals
   - Japanese
+  - Colours, food, nature, space, myth and gems
+
+- **Themes From Tags**. A request can carry tags such as `"combat"` or `"leadership"` (the tags of a character's traits and job); one nickname in three is then a word that suits them, from 43 shipped themes you can extend.
 
 - **Request-first API**. `nickname_request` holds per-call choices; `get_nickname(request)` generates normally and `get_nickname(request, seed)` produces reproducible results. `nickname::seed()` records the seed for replay.
 
