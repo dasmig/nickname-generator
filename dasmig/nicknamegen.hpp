@@ -38,6 +38,13 @@ struct nng_test_access;
 namespace dasmig
 {
 
+/// @brief The kind of nickname a request asks for.
+enum class nickname_style : std::uint8_t
+{
+    gaming,   ///< A gaming handle: decorated and cased freely ("xX_Nioi_Xx", "dR4g0n").
+    username, ///< A username: lowercase letters and digits, with `.` or `_` ("john.smith92").
+};
+
 /// @brief Per-call choices for nickname generation.
 ///
 /// Word lists are loaded on nng; deterministic calls take a separate seed.
@@ -60,6 +67,19 @@ struct nickname_request
     /// then a word), unless the name takes the nickname first. Tags without a
     /// list are ignored. The default is no themes.
     std::vector<std::string> tags{};
+
+    /// @brief The kind of nickname: a gaming handle (the default) or a username.
+    ///
+    /// A gaming handle may be decorated, leetified and cased freely. A
+    /// username is lowercase ASCII letters and digits, at most 24 characters,
+    /// with `.` or `_` between parts: from a name it is the name in a common
+    /// shape ("john.smith", "jsmith", "smith_john", "johns92"), always
+    /// derived from the name; without a name it is one or two words from the
+    /// lists ("swiftfox", "quiet_otter"), with digits about half the time.
+    /// Accents are folded to ASCII ("jose" for "José") and characters
+    /// that have no ASCII form are dropped; a name with no letters left is
+    /// treated as no name.
+    nickname_style style{nickname_style::gaming};
 };
 
 /// @brief Return type for nickname generation, holding both the transformed
@@ -1094,6 +1114,190 @@ class nng
         return single_name;
     }
 
+    // -- Usernames ----------------------------------------------------------
+
+    static constexpr std::size_t username_max_length_ = 24;
+
+    // Lowercase ASCII letters and digits only: accents are folded (the same
+    // Latin ranges as the case mapping), anything else is dropped.
+    [[nodiscard]] static std::wstring fold_ascii_(const std::wstring& text)
+    {
+        // Latin Extended-A (U+0100 to U+017F), one letter per code point; the
+        // ligatures (U+0132, U+0133, U+0152, U+0153) are handled apart.
+        static constexpr std::string_view extended_a =
+            "aaaaaacc" "ccccccdd" "ddeeeeee" "eeeegggg" "gggghhhh" "iiiiiiii" "iiiijjkk" "klllllll"
+            "lllnnnnn" "nnnnoooo" "oooorrrr" "rrssssss" "sstttttt" "uuuuuuuu" "uuuuwwyy" "yzzzzzzs";
+        std::wstring folded;
+        for (const wchar_t original : text)
+        {
+            const wchar_t c = to_lower_(original);
+            const auto u = static_cast<std::uint32_t>(c);
+            if ((u >= 0x61U && u <= 0x7AU) || (u >= 0x30U && u <= 0x39U))
+            {
+                folded.push_back(c);
+            }
+            else if (u >= 0xE0U && u <= 0xFFU)
+            {
+                if (u <= 0xE5U) folded.push_back(L'a');
+                else if (u == 0xE6U) folded.append(L"ae");
+                else if (u == 0xE7U) folded.push_back(L'c');
+                else if (u <= 0xEBU) folded.push_back(L'e');
+                else if (u <= 0xEFU) folded.push_back(L'i');
+                else if (u == 0xF0U) folded.push_back(L'd');
+                else if (u == 0xF1U) folded.push_back(L'n');
+                else if (u <= 0xF6U || u == 0xF8U) folded.push_back(L'o');
+                else if (u >= 0xF9U && u <= 0xFCU) folded.push_back(L'u');
+                else if (u == 0xFDU || u == 0xFFU) folded.push_back(L'y');
+                else if (u == 0xFEU) folded.append(L"th");
+            }
+            else if (u == 0xDFU)
+            {
+                folded.append(L"ss");
+            }
+            else if (u >= 0x100U && u <= 0x17FU)
+            {
+                if (u == 0x132U || u == 0x133U) folded.append(L"ij");
+                else if (u == 0x152U || u == 0x153U) folded.append(L"oe");
+                else folded.push_back(static_cast<wchar_t>(extended_a[u - 0x100U]));
+            }
+        }
+        return folded;
+    }
+
+    // The parts of a name that survive folding.
+    [[nodiscard]] static std::vector<std::wstring> username_parts_(const std::wstring& name)
+    {
+        std::vector<std::wstring> parts;
+        for (const auto& part : split_name(name))
+        {
+            if (auto folded = fold_ascii_(part); !folded.empty()) parts.push_back(std::move(folded));
+        }
+        return parts;
+    }
+
+    // A word of a theme or a list, as a username part: short when it can be.
+    [[nodiscard]] std::wstring username_word_(const std::vector<const std::vector<std::wstring>*>& themes,
+                                              bool allow_theme, core::rng& engine) const
+    {
+        static constexpr double theme_probability{1.0 / 3.0};
+        static constexpr std::size_t preferred_length = 8;
+        static constexpr int attempts = 8;
+        std::wstring word;
+        for (int attempt = 0; attempt < attempts; ++attempt)
+        {
+            const std::vector<std::wstring>* list = nullptr;
+            if (allow_theme && !themes.empty() &&
+                (_wordlists.empty() || core::bernoulli(engine, theme_probability)))
+            {
+                list = core::pick(engine, themes);
+            }
+            else if (!_wordlists.empty())
+            {
+                list = &_wordlists[_list_choice(engine)];
+            }
+            else
+            {
+                throw std::invalid_argument("Received no name and word lists are empty");
+            }
+            word = fold_ascii_(core::pick(engine, *list));
+            if (!word.empty() && word.size() <= preferred_length) return word;
+        }
+        return word.empty() ? L"user" : word;
+    }
+
+    // Digits at the end of a username, about half the time.
+    [[nodiscard]] static std::wstring username_digits_(core::rng& engine)
+    {
+        const auto kind = core::uniform_int(engine, 0, 19);
+        if (kind < 9) return {};
+        std::wstring digits;
+        if (kind < 14) // a two-digit year: 70 to 99, then 00 to 09
+        {
+            const auto year = (70 + core::uniform_int(engine, 0, 39)) % 100;
+            digits = (year < 10 ? L"0" : L"") + std::to_wstring(year);
+        }
+        else if (kind < 18) // one or two digits
+        {
+            digits = std::to_wstring(core::uniform_int(engine, 1, 99));
+        }
+        else // three or four digits
+        {
+            digits = std::to_wstring(core::uniform_int(engine, 100, 9999));
+        }
+        if (core::bernoulli(engine, 0.15)) digits.insert(0, 1, L'_');
+        return digits;
+    }
+
+    // The name in one of the shapes usernames take.
+    [[nodiscard]] static std::wstring username_from_name_(const std::vector<std::wstring>& parts,
+                                                          core::rng& engine)
+    {
+        const std::wstring& first = parts.front();
+        const std::wstring& last = parts.back();
+        if (parts.size() == 1) return first;
+        switch (core::uniform_int(engine, 0, 19))
+        {
+        case 0: case 1: case 2: case 3: case 4:
+            return first + L"." + last;                          // john.smith
+        case 5: case 6: case 7: case 8:
+            return first + last;                                 // johnsmith
+        case 9: case 10:
+            return first + L"_" + last;                          // john_smith
+        case 11: case 12: case 13:
+            return first.substr(0, 1) + last;                    // jsmith
+        case 14:
+            return first.substr(0, 1) + L"." + last;             // j.smith
+        case 15:
+            return first + L"." + last.substr(0, 1);             // john.s
+        case 16:
+            return first + last.substr(0, 1);                    // johns
+        case 17:
+            return last + L"." + first;                          // smith.john
+        case 18:
+            return last + L"_" + first;                          // smith_john
+        default:
+            return last + first.substr(0, 1);                    // smithj
+        }
+    }
+
+    // A username: the name in a common shape, or one or two words.
+    [[nodiscard]] nickname username_(const nickname_request& request, core::rng& engine) const
+    {
+        std::wstring original;
+        std::wstring base;
+        if (const auto parts = username_parts_(request.name); !parts.empty())
+        {
+            original = request.name;
+            base = username_from_name_(parts, engine);
+        }
+        else
+        {
+            const auto themes = themes_of_(request.tags);
+            std::wstring first = username_word_(themes, true, engine);
+            original = first;
+            base = first;
+            if (core::bernoulli(engine, 0.5))
+            {
+                const std::wstring second = username_word_(themes, false, engine);
+                original += L" " + second;
+                switch (core::uniform_int(engine, 0, 4))
+                {
+                case 0: case 1: base += second; break;
+                case 2: case 3: base += L"_" + second; break;
+                default: base += L"." + second; break;
+                }
+            }
+        }
+
+        const std::wstring digits = username_digits_(engine);
+        if (base.size() + digits.size() > username_max_length_)
+        {
+            base.resize(username_max_length_ - std::min(digits.size(), username_max_length_ - 1));
+            while (base.size() > 1 && (base.back() == L'.' || base.back() == L'_')) base.pop_back();
+        }
+        return {base + digits, original};
+    }
+
     // The theme lists for a request's tags, each once, in the request's order;
     // tags without a list are left out.
     [[nodiscard]] std::vector<const std::vector<std::wstring>*> themes_of_(
@@ -1113,6 +1317,7 @@ class nng
     // player full name.
     [[nodiscard]] nickname solver(const nickname_request& request, core::rng& engine) const
     {
+        if (request.style == nickname_style::username) return username_(request, engine);
         const std::wstring& name = request.name;
         std::wstring original;
         std::wstring nick;

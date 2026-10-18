@@ -12,6 +12,7 @@ This guide covers every feature of the nickname-generator library in detail. For
 <li><a href="#generating-nicknames">Generating Nicknames</a></li>
 <li><a href="#nickname-transforms">Nickname Transforms</a></li>
 <li><a href="#word-lists">Word Lists</a></li>
+<li><a href="#styles">Styles</a></li>
 <li><a href="#tags">Tags</a></li>
 <li><a href="#thread-safety">Thread Safety</a></li>
 <li><a href="#seeding-and-deterministic-generation">Seeding and Deterministic Generation</a></li>
@@ -169,6 +170,29 @@ Lists of your own are added with `extend()` (see Extending Data).
 A list is chosen with a chance proportional to the square root of its word
 count, then a word from it uniformly, so a long list is drawn more often than a
 short one, but a 100-times longer list only 10 times as often.
+
+## Styles
+
+`nickname_request.style` picks the kind of nickname:
+
+| Style | Result |
+|-------|--------|
+| `nickname_style::gaming` (default) | A gaming handle, decorated and cased freely: `xXNioiXx`, `dR4g0n`, `iLoveCake` |
+| `nickname_style::username` | A username: `john.smith`, `jsmith92`, `swiftfox`, `quiet_otter_07` |
+
+```cpp
+auto& gen = dasmig::nng::instance();
+
+// From a name: always derived from it, in a common shape.
+auto a = gen.get_nickname({.name = L"José García", .style = dasmig::nickname_style::username}, 1);
+// "jose.garcia", "jgarcia", "garcia_jose84", ...
+
+// Without a name: one or two words, digits about half the time.
+auto b = gen.get_nickname({.style = dasmig::nickname_style::username}, 2);
+// "swiftfox", "quiet_otter", "lemonade.prize", ...
+```
+
+A username is lowercase ASCII letters and digits, at most 24 characters, with `.` or `_` between parts and never at the end. Accents are folded (`é` is `e`) and characters with no ASCII form are dropped, so a name in another script gives word-based usernames. `tags` work as for a gaming handle: a themed word is the first word. `plain()` is the name, or the words joined by a space. The default style is unchanged. See [Data and Method](data.md) for the shapes and their chances.
 
 ## Tags
 

@@ -1493,3 +1493,199 @@ TEST_CASE("the large shipped list still gets a large share", "[lists]")
     REQUIRE(from_adjectives > n * 0.30);
     REQUIRE(from_adjectives < n * 0.50);
 }
+
+// ---------------------------------------------------------------------------
+// Username style
+// ---------------------------------------------------------------------------
+
+namespace
+{
+constexpr auto username_style = dasmig::nickname_style::username;
+
+std::string ascii_of(const std::wstring& text)
+{
+    std::string out;
+    for (const wchar_t c : text) out.push_back(static_cast<char>(c));
+    return out;
+}
+
+bool is_username(const std::string& s)
+{
+    if (s.empty() || s.size() > 24) return false;
+    if (!(s.front() >= 'a' && s.front() <= 'z')) return false;
+    if (s.back() == '.' || s.back() == '_') return false;
+    return std::ranges::all_of(s, [](char c) {
+        return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' || c == '_';
+    });
+}
+
+std::string without_digits(std::string s)
+{
+    while (!s.empty() && s.back() >= '0' && s.back() <= '9') s.pop_back();
+    if (!s.empty() && s.back() == '_') s.pop_back();
+    return s;
+}
+} // namespace
+
+TEST_CASE("username: always lowercase ASCII letters, digits, dots and underscores", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const std::vector<std::wstring> names{L"", L"John Smith", L"Ana", L"Maria da Silva Santos",
+                                          L"Maximilian Bartholomew Wolfeschlegelstein-Hausen",
+                                          L"O'Brien Jean-Luc"};
+    for (const auto& name : names)
+    {
+        for (std::uint64_t seed = 0; seed < 1500; ++seed)
+        {
+            const auto nick = ascii_of(std::wstring{g.get_nickname({.name = name, .tags = {"combat"}, .style = username_style}, seed)});
+            INFO(nick);
+            REQUIRE(is_username(nick));
+        }
+    }
+}
+
+TEST_CASE("username: from a name it takes one of the common shapes", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const std::set<std::string> shapes{"john.smith", "johnsmith", "john_smith", "jsmith", "j.smith",
+                                       "john.s",     "johns",     "smith.john", "smith_john", "smithj"};
+    std::set<std::string> seen;
+    for (std::uint64_t seed = 0; seed < 3000; ++seed)
+    {
+        const auto nick = ascii_of(std::wstring{g.get_nickname({.name = L"John Smith", .style = username_style}, seed)});
+        const auto base = without_digits(nick);
+        INFO(nick);
+        REQUIRE(shapes.contains(base));
+        seen.insert(base);
+    }
+    REQUIRE(seen == shapes); // every shape turns up
+}
+
+TEST_CASE("username: a name always gives a name-based username, and plain() is the name", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    for (std::uint64_t seed = 0; seed < 300; ++seed)
+    {
+        const auto nick = g.get_nickname({.name = L"John Smith", .style = username_style}, seed);
+        REQUIRE(nick.plain() == L"John Smith");
+        const auto text = ascii_of(std::wstring{nick});
+        REQUIRE((text.find("john") != std::string::npos || text.find("smith") != std::string::npos ||
+                 text.find('j') == 0 || text.find('s') == 0));
+    }
+}
+
+TEST_CASE("username: accents are folded and what has no ASCII form is dropped", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    std::set<std::string> bases;
+    for (std::uint64_t seed = 0; seed < 600; ++seed)
+    {
+        bases.insert(without_digits(
+            ascii_of(std::wstring{g.get_nickname({.name = L"José García", .style = username_style}, seed)})));
+    }
+    REQUIRE(bases.contains("jose.garcia"));
+    REQUIRE(bases.contains("jgarcia"));
+
+    // Ligatures, ss, o-slash, and punctuation inside a name part.
+    bases.clear();
+    for (std::uint64_t seed = 0; seed < 600; ++seed)
+    {
+        bases.insert(without_digits(
+            ascii_of(std::wstring{g.get_nickname({.name = L"Schönß O'Brienœ", .style = username_style}, seed)})));
+    }
+    REQUIRE(bases.contains("schonss.obrienoe"));
+}
+
+TEST_CASE("username: a name with no ASCII form falls back to words", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    for (std::uint64_t seed = 0; seed < 200; ++seed)
+    {
+        const auto nick = g.get_nickname({.name = L"山田 太郎", .style = username_style}, seed);
+        REQUIRE(is_username(ascii_of(std::wstring{nick})));
+        REQUIRE(nick.plain() != L"山田 太郎");
+    }
+}
+
+TEST_CASE("username: without a name it is one or two words, with digits about half the time", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    int with_digits = 0;
+    int two_words = 0;
+    constexpr int n = 4000;
+    for (int i = 0; i < n; ++i)
+    {
+        const auto nick = g.get_nickname({.style = username_style}, static_cast<std::uint64_t>(i));
+        const auto text = ascii_of(std::wstring{nick});
+        if (text.back() >= '0' && text.back() <= '9') ++with_digits;
+        if (nick.plain().find(L' ') != std::wstring::npos) ++two_words;
+    }
+    REQUIRE(with_digits > n * 0.45);
+    REQUIRE(with_digits < n * 0.65);
+    REQUIRE(two_words > n * 0.40);
+    REQUIRE(two_words < n * 0.60);
+}
+
+TEST_CASE("username: tags give themed words as the first word", "[username][tags]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    std::set<std::wstring> combat; // the username source is lowercase
+    for (auto word : theme_words("combat"))
+    {
+        std::ranges::transform(word, word.begin(), [](wchar_t c) { return static_cast<wchar_t>(std::towlower(c)); });
+        combat.insert(word);
+    }
+    int themed = 0;
+    constexpr int n = 3000;
+    for (int i = 0; i < n; ++i)
+    {
+        const auto source = g.get_nickname({.tags = {"combat"}, .style = username_style}, static_cast<std::uint64_t>(i)).plain();
+        const auto first = source.substr(0, source.find(L' '));
+        if (combat.contains(first)) ++themed;
+    }
+    REQUIRE(themed > n * 0.28);
+    REQUIRE(themed < n * 0.40);
+}
+
+TEST_CASE("username: the same seed replays and the default style is unchanged", "[username][seed]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    for (std::uint64_t seed = 0; seed < 100; ++seed)
+    {
+        const dasmig::nickname_request request{.name = L"Ana Lima", .style = username_style};
+        REQUIRE(g.get_nickname(request, seed).to_json() == g.get_nickname(request, seed).to_json());
+        REQUIRE(g.get_nickname({.name = L"Ana Lima", .style = dasmig::nickname_style::gaming}, seed).to_json() ==
+                g.get_nickname({.name = L"Ana Lima"}, seed).to_json());
+    }
+    REQUIRE(g.get_nickname({.name = L"Ana Lima", .style = username_style}, 7).to_json() !=
+            g.get_nickname({.name = L"Ana Lima"}, 7).to_json());
+}
+
+TEST_CASE("username: a long name is cut to 24 characters", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    for (std::uint64_t seed = 0; seed < 500; ++seed)
+    {
+        const auto text = ascii_of(std::wstring{g.get_nickname(
+            {.name = L"Bartholomew Wolfeschlegelsteinhausenbergerdorff", .style = username_style}, seed)});
+        REQUIRE(text.size() <= 24);
+        REQUIRE(is_username(text));
+    }
+}
+
+TEST_CASE("username: no lists still works from a name, and throws without one", "[username][edge]")
+{
+    dasmig::nng g;
+    REQUIRE_FALSE(g.has_wordlists());
+    REQUIRE(is_username(ascii_of(std::wstring{g.get_nickname({.name = L"John Smith", .style = username_style}, 1)})));
+    REQUIRE_THROWS_AS(g.get_nickname({.style = username_style}, 1), std::invalid_argument);
+}
