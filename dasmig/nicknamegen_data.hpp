@@ -4977,8 +4977,187 @@ inline constexpr std::array<std::string_view, 1> file_1{
         , 750},
 };
 
-// lite/japanese.words
+// lite/colors.words
 inline constexpr std::array<std::string_view, 1> file_2{
+    std::string_view{
+        "Crimson\n"
+        "Scarlet\n"
+        "Amber\n"
+        "Indigo\n"
+        "Violet\n"
+        "Azure\n"
+        "Cobalt\n"
+        "Teal\n"
+        "Cyan\n"
+        "Magenta\n"
+        "Maroon\n"
+        "Ochre\n"
+        "Sienna\n"
+        "Umber\n"
+        "Sepia\n"
+        "Ivory\n"
+        "Ebony\n"
+        "Onyx\n"
+        "Slate\n"
+        "Silver\n"
+        "Golden\n"
+        "Bronze\n"
+        "Copper\n"
+        "Rust\n"
+        "Saffron\n"
+        "Lavender\n"
+        "Lilac\n"
+        "Mauve\n"
+        "Plum\n"
+        "Burgundy\n"
+        "Vermilion\n"
+        "Cerulean\n"
+        "Emerald\n"
+        "Jade\n"
+        "Olive\n"
+        "Lime\n"
+        "Mint\n"
+        "Sage\n"
+        "Coral\n"
+        "Salmon\n"
+        "Peach\n"
+        "Rose\n"
+        "Blush\n"
+        "Charcoal\n"
+        "Ash\n"
+        "Pearl\n"
+        "Opal\n"
+        "Cream\n"
+        "Tan\n"
+        "Beige\n"
+        "Turquoise\n"
+        "Aqua\n"
+        "Navy\n"
+        "Sapphire\n"
+        "Ruby\n"
+        "Garnet\n"
+        "Topaz\n"
+        , 368},
+};
+
+// lite/food.words
+inline constexpr std::array<std::string_view, 1> file_3{
+    std::string_view{
+        "Biscuit\n"
+        "Pickle\n"
+        "Waffle\n"
+        "Muffin\n"
+        "Noodle\n"
+        "Dumpling\n"
+        "Pretzel\n"
+        "Pancake\n"
+        "Cookie\n"
+        "Cupcake\n"
+        "Nacho\n"
+        "Taco\n"
+        "Burrito\n"
+        "Bagel\n"
+        "Donut\n"
+        "Brownie\n"
+        "Cracker\n"
+        "Crouton\n"
+        "Gumbo\n"
+        "Kebab\n"
+        "Ramen\n"
+        "Sushi\n"
+        "Tofu\n"
+        "Wasabi\n"
+        "Mochi\n"
+        "Churro\n"
+        "Nugget\n"
+        "Popcorn\n"
+        "Pepper\n"
+        "Ginger\n"
+        "Mustard\n"
+        "Cinnamon\n"
+        "Nutmeg\n"
+        "Paprika\n"
+        "Pumpkin\n"
+        "Turnip\n"
+        "Radish\n"
+        "Walnut\n"
+        "Pecan\n"
+        "Almond\n"
+        "Cashew\n"
+        "Peanut\n"
+        "Cherry\n"
+        "Mango\n"
+        "Papaya\n"
+        "Guava\n"
+        "Kiwi\n"
+        "Lychee\n"
+        "Plum\n"
+        "Berry\n"
+        "Truffle\n"
+        "Fudge\n"
+        "Toffee\n"
+        "Caramel\n"
+        "Praline\n"
+        "Custard\n"
+        "Pudding\n"
+        "Sprinkles\n"
+        "Meatball\n"
+        "Cheddar\n"
+        "Gouda\n"
+        "Brie\n"
+        "Sourdough\n"
+        , 447},
+};
+
+// lite/gems.words
+inline constexpr std::array<std::string_view, 1> file_4{
+    std::string_view{
+        "Diamond\n"
+        "Emerald\n"
+        "Sapphire\n"
+        "Ruby\n"
+        "Topaz\n"
+        "Amethyst\n"
+        "Garnet\n"
+        "Opal\n"
+        "Pearl\n"
+        "Jade\n"
+        "Onyx\n"
+        "Agate\n"
+        "Beryl\n"
+        "Citrine\n"
+        "Peridot\n"
+        "Zircon\n"
+        "Spinel\n"
+        "Tanzanite\n"
+        "Moonstone\n"
+        "Sunstone\n"
+        "Obsidian\n"
+        "Quartz\n"
+        "Jasper\n"
+        "Lapis\n"
+        "Malachite\n"
+        "Turquoise\n"
+        "Amber\n"
+        "Coral\n"
+        "Jet\n"
+        "Bloodstone\n"
+        "Carnelian\n"
+        "Aquamarine\n"
+        "Alexandrite\n"
+        "Tourmaline\n"
+        "Kyanite\n"
+        "Fluorite\n"
+        "Pyrite\n"
+        "Cobalt\n"
+        "Cinnabar\n"
+        "Marcasite\n"
+        "Hematite\n"
+        , 323},
+};
+
+// lite/japanese.words
+inline constexpr std::array<std::string_view, 1> file_5{
     std::string_view{
         "Aho\n"
         "Aikawarazu\n"
@@ -5216,10 +5395,865 @@ inline constexpr std::array<std::string_view, 1> file_2{
         , 1665},
 };
 
-inline constexpr std::array<core::embedded_file, 3> files{{
+// lite/myth.words
+inline constexpr std::array<std::string_view, 1> file_6{
+    std::string_view{
+        "Phoenix\n"
+        "Kraken\n"
+        "Griffin\n"
+        "Valkyrie\n"
+        "Minotaur\n"
+        "Cyclops\n"
+        "Hydra\n"
+        "Chimera\n"
+        "Basilisk\n"
+        "Banshee\n"
+        "Wraith\n"
+        "Specter\n"
+        "Golem\n"
+        "Gargoyle\n"
+        "Sphinx\n"
+        "Pegasus\n"
+        "Centaur\n"
+        "Satyr\n"
+        "Siren\n"
+        "Selkie\n"
+        "Kelpie\n"
+        "Leviathan\n"
+        "Behemoth\n"
+        "Titan\n"
+        "Atlas\n"
+        "Helios\n"
+        "Apollo\n"
+        "Ares\n"
+        "Athena\n"
+        "Hermes\n"
+        "Poseidon\n"
+        "Hades\n"
+        "Thor\n"
+        "Odin\n"
+        "Loki\n"
+        "Freya\n"
+        "Fenrir\n"
+        "Anubis\n"
+        "Osiris\n"
+        "Horus\n"
+        "Ra\n"
+        "Isis\n"
+        "Bastet\n"
+        "Susanoo\n"
+        "Raijin\n"
+        "Kitsune\n"
+        "Tengu\n"
+        "Oni\n"
+        "Naga\n"
+        "Garuda\n"
+        "Rakshasa\n"
+        "Djinn\n"
+        "Ifrit\n"
+        "Unicorn\n"
+        "Dragon\n"
+        "Wyvern\n"
+        "Drake\n"
+        "Warlock\n"
+        "Sorcerer\n"
+        "Paladin\n"
+        , 420},
+};
+
+// lite/nature.words
+inline constexpr std::array<std::string_view, 1> file_7{
+    std::string_view{
+        "Thunder\n"
+        "Willow\n"
+        "Ember\n"
+        "Glacier\n"
+        "Tempest\n"
+        "Breeze\n"
+        "Storm\n"
+        "Blizzard\n"
+        "Cyclone\n"
+        "Monsoon\n"
+        "Drizzle\n"
+        "Frost\n"
+        "Mist\n"
+        "Fog\n"
+        "Dusk\n"
+        "Dawn\n"
+        "Twilight\n"
+        "Eclipse\n"
+        "Aurora\n"
+        "Meadow\n"
+        "Canyon\n"
+        "Summit\n"
+        "Ridge\n"
+        "Cliff\n"
+        "Boulder\n"
+        "Pebble\n"
+        "River\n"
+        "Brook\n"
+        "Creek\n"
+        "Delta\n"
+        "Lagoon\n"
+        "Reef\n"
+        "Tundra\n"
+        "Savanna\n"
+        "Prairie\n"
+        "Jungle\n"
+        "Forest\n"
+        "Grove\n"
+        "Thicket\n"
+        "Bramble\n"
+        "Thorn\n"
+        "Fern\n"
+        "Moss\n"
+        "Clover\n"
+        "Ivy\n"
+        "Cedar\n"
+        "Maple\n"
+        "Birch\n"
+        "Aspen\n"
+        "Oak\n"
+        "Pine\n"
+        "Cypress\n"
+        "Sequoia\n"
+        "Orchid\n"
+        "Lotus\n"
+        "Daisy\n"
+        "Poppy\n"
+        "Tulip\n"
+        "Dandelion\n"
+        "Cinder\n"
+        "Spark\n"
+        "Blaze\n"
+        "Inferno\n"
+        "Magma\n"
+        "Geyser\n"
+        "Oasis\n"
+        "Dune\n"
+        "Mesa\n"
+        , 448},
+};
+
+// lite/space.words
+inline constexpr std::array<std::string_view, 1> file_8{
+    std::string_view{
+        "Nebula\n"
+        "Quasar\n"
+        "Comet\n"
+        "Meteor\n"
+        "Asteroid\n"
+        "Galaxy\n"
+        "Cosmos\n"
+        "Orbit\n"
+        "Eclipse\n"
+        "Pulsar\n"
+        "Nova\n"
+        "Supernova\n"
+        "Singularity\n"
+        "Wormhole\n"
+        "Photon\n"
+        "Neutron\n"
+        "Proton\n"
+        "Plasma\n"
+        "Ion\n"
+        "Vortex\n"
+        "Zenith\n"
+        "Nadir\n"
+        "Apogee\n"
+        "Perigee\n"
+        "Equinox\n"
+        "Solstice\n"
+        "Lunar\n"
+        "Solar\n"
+        "Stellar\n"
+        "Astro\n"
+        "Rocket\n"
+        "Probe\n"
+        "Rover\n"
+        "Lander\n"
+        "Voyager\n"
+        "Pioneer\n"
+        "Hubble\n"
+        "Kepler\n"
+        "Halley\n"
+        "Orion\n"
+        "Andromeda\n"
+        "Cassiopeia\n"
+        "Pegasus\n"
+        "Lyra\n"
+        "Vega\n"
+        "Sirius\n"
+        "Polaris\n"
+        "Altair\n"
+        "Antares\n"
+        "Rigel\n"
+        "Titan\n"
+        "Europa\n"
+        "Callisto\n"
+        "Io\n"
+        "Triton\n"
+        "Phobos\n"
+        "Deimos\n"
+        "Ceres\n"
+        , 414},
+};
+
+// lite/tag_academic.words
+inline constexpr std::array<std::string_view, 1> file_9{
+    std::string_view{
+        "Doc\n"
+        "Thesis\n"
+        "Prof\n"
+        "Lecture\n"
+        "Quill\n"
+        "Tweed\n"
+        "Footnote\n"
+        "Dean\n"
+        , 50},
+};
+
+// lite/tag_activity.words
+inline constexpr std::array<std::string_view, 1> file_10{
+    std::string_view{
+        "Dash\n"
+        "Spark\n"
+        "Turbo\n"
+        "Zippy\n"
+        "Jolt\n"
+        "Bounce\n"
+        "Pogo\n"
+        "Blitz\n"
+        , 46},
+};
+
+// lite/tag_art.words
+inline constexpr std::array<std::string_view, 1> file_11{
+    std::string_view{
+        "Muse\n"
+        "Canvas\n"
+        "Maestro\n"
+        "Palette\n"
+        "Sketch\n"
+        "Virtuoso\n"
+        "Bard\n"
+        "Tinkerer\n"
+        , 58},
+};
+
+// lite/tag_care.words
+inline constexpr std::array<std::string_view, 1> file_12{
+    std::string_view{
+        "Mama\n"
+        "Teddy\n"
+        "Cuddle\n"
+        "Nurse\n"
+        "Shepherd\n"
+        "Cocoa\n"
+        "Tender\n"
+        "Hearth\n"
+        , 53},
+};
+
+// lite/tag_caring.words
+inline constexpr std::array<std::string_view, 1> file_13{
+    std::string_view{
+        "Nurse\n"
+        "Hug\n"
+        "Mender\n"
+        "Angel\n"
+        "Cozy\n"
+        "Buddy\n"
+        "Helper\n"
+        "Mother\n"
+        , 48},
+};
+
+// lite/tag_chaos.words
+inline constexpr std::array<std::string_view, 1> file_14{
+    std::string_view{
+        "Mayhem\n"
+        "Havoc\n"
+        "Ruckus\n"
+        "Tornado\n"
+        "Scatter\n"
+        "Jumble\n"
+        "Mess\n"
+        "Whirl\n"
+        , 54},
+};
+
+// lite/tag_combat.words
+inline constexpr std::array<std::string_view, 1> file_15{
+    std::string_view{
+        "Fang\n"
+        "Saber\n"
+        "Gladiator\n"
+        "Brawler\n"
+        "Striker\n"
+        "Warhog\n"
+        "Lancer\n"
+        "Hawk\n"
+        , 56},
+};
+
+// lite/tag_crafting.words
+inline constexpr std::array<std::string_view, 1> file_16{
+    std::string_view{
+        "Smith\n"
+        "Forge\n"
+        "Anvil\n"
+        "Tinker\n"
+        "Mason\n"
+        "Weaver\n"
+        "Cobbler\n"
+        "Joiner\n"
+        , 53},
+};
+
+// lite/tag_creative.words
+inline constexpr std::array<std::string_view, 1> file_17{
+    std::string_view{
+        "Doodle\n"
+        "Spark\n"
+        "Inkwell\n"
+        "Idea\n"
+        "Palette\n"
+        "Whimsy\n"
+        "Wonder\n"
+        "Scribble\n"
+        , 57},
+};
+
+// lite/tag_desk.words
+inline constexpr std::array<std::string_view, 1> file_18{
+    std::string_view{
+        "Stapler\n"
+        "Inbox\n"
+        "Memo\n"
+        "Cubicle\n"
+        "Paperclip\n"
+        "Clipboard\n"
+        "Ledger\n"
+        "Spreadsheet\n"
+        , 66},
+};
+
+// lite/tag_discipline.words
+inline constexpr std::array<std::string_view, 1> file_19{
+    std::string_view{
+        "Sergeant\n"
+        "Rule\n"
+        "Ironside\n"
+        "Strict\n"
+        "Order\n"
+        "Marching\n"
+        "Crisp\n"
+        "Sharp\n"
+        , 57},
+};
+
+// lite/tag_dreaming.words
+inline constexpr std::array<std::string_view, 1> file_20{
+    std::string_view{
+        "Dreamer\n"
+        "Daydream\n"
+        "Reverie\n"
+        "Lull\n"
+        "Stargazer\n"
+        "Drifty\n"
+        "Cloud\n"
+        "Vision\n"
+        , 60},
+};
+
+// lite/tag_duty.words
+inline constexpr std::array<std::string_view, 1> file_21{
+    std::string_view{
+        "Oath\n"
+        "Anchor\n"
+        "Pledge\n"
+        "Warden\n"
+        "Rock\n"
+        "Steadfast\n"
+        "Vow\n"
+        "Keeper\n"
+        , 52},
+};
+
+// lite/tag_exploration.words
+inline constexpr std::array<std::string_view, 1> file_22{
+    std::string_view{
+        "Scout\n"
+        "Nomad\n"
+        "Rover\n"
+        "Pathfinder\n"
+        "Ranger\n"
+        "Drifter\n"
+        "Wayfarer\n"
+        "Trailblazer\n"
+        , 65},
+};
+
+// lite/tag_faith.words
+inline constexpr std::array<std::string_view, 1> file_23{
+    std::string_view{
+        "Pilgrim\n"
+        "Deacon\n"
+        "Monk\n"
+        "Chaplain\n"
+        "Believer\n"
+        "Halo\n"
+        "Psalm\n"
+        "Amen\n"
+        , 54},
+};
+
+// lite/tag_flight.words
+inline constexpr std::array<std::string_view, 1> file_24{
+    std::string_view{
+        "Sprinter\n"
+        "Dodger\n"
+        "Rabbit\n"
+        "Hare\n"
+        "Skedaddle\n"
+        "Scoot\n"
+        "Bolt\n"
+        "Jackrabbit\n"
+        , 60},
+};
+
+// lite/tag_haste.words
+inline constexpr std::array<std::string_view, 1> file_25{
+    std::string_view{
+        "Rush\n"
+        "Zoom\n"
+        "Quick\n"
+        "Rocket\n"
+        "Flash\n"
+        "Hurry\n"
+        "Whiz\n"
+        "Sonic\n"
+        , 46},
+};
+
+// lite/tag_knowledge.words
+inline constexpr std::array<std::string_view, 1> file_26{
+    std::string_view{
+        "Sage\n"
+        "Scholar\n"
+        "Prof\n"
+        "Brainiac\n"
+        "Savant\n"
+        "Oracle\n"
+        "Bookworm\n"
+        "Genius\n"
+        , 57},
+};
+
+// lite/tag_labour.words
+inline constexpr std::array<std::string_view, 1> file_27{
+    std::string_view{
+        "Ox\n"
+        "Grinder\n"
+        "Hammer\n"
+        "Mule\n"
+        "Sweat\n"
+        "Workhorse\n"
+        "Shovel\n"
+        "Toil\n"
+        , 51},
+};
+
+// lite/tag_leadership.words
+inline constexpr std::array<std::string_view, 1> file_28{
+    std::string_view{
+        "Chief\n"
+        "Captain\n"
+        "Boss\n"
+        "Skipper\n"
+        "Major\n"
+        "Marshal\n"
+        "Duke\n"
+        "Regent\n"
+        , 53},
+};
+
+// lite/tag_manual.words
+inline constexpr std::array<std::string_view, 1> file_29{
+    std::string_view{
+        "Wrench\n"
+        "Hammer\n"
+        "Gears\n"
+        "Toolbox\n"
+        "Grease\n"
+        "Pliers\n"
+        "Sprocket\n"
+        "Bolt\n"
+        , 56},
+};
+
+// lite/tag_medicine.words
+inline constexpr std::array<std::string_view, 1> file_30{
+    std::string_view{
+        "Doc\n"
+        "Medic\n"
+        "Remedy\n"
+        "Scalpel\n"
+        "Tonic\n"
+        "Salve\n"
+        "Pill\n"
+        "Healer\n"
+        , 49},
+};
+
+// lite/tag_morale.words
+inline constexpr std::array<std::string_view, 1> file_31{
+    std::string_view{
+        "Sunny\n"
+        "Cheer\n"
+        "Beacon\n"
+        "Sunbeam\n"
+        "Pep\n"
+        "Bounce\n"
+        "Ray\n"
+        "Smiley\n"
+        , 49},
+};
+
+// lite/tag_outdoor.words
+inline constexpr std::array<std::string_view, 1> file_32{
+    std::string_view{
+        "Woody\n"
+        "Camper\n"
+        "Trekker\n"
+        "Rainy\n"
+        "Sunburn\n"
+        "Canopy\n"
+        "Hiker\n"
+        "Mud\n"
+        , 52},
+};
+
+// lite/tag_physical.words
+inline constexpr std::array<std::string_view, 1> file_33{
+    std::string_view{
+        "Muscle\n"
+        "Tank\n"
+        "Biceps\n"
+        "Bruiser\n"
+        "Athlete\n"
+        "Beast\n"
+        "Rocky\n"
+        "Titan\n"
+        , 53},
+};
+
+// lite/tag_planning.words
+inline constexpr std::array<std::string_view, 1> file_34{
+    std::string_view{
+        "Plan\n"
+        "Blueprint\n"
+        "Chess\n"
+        "Gantt\n"
+        "Checklist\n"
+        "Compass\n"
+        "Strategist\n"
+        "Mapper\n"
+        , 63},
+};
+
+// lite/tag_rest.words
+inline constexpr std::array<std::string_view, 1> file_35{
+    std::string_view{
+        "Snooze\n"
+        "Nap\n"
+        "Drowsy\n"
+        "Slumber\n"
+        "Hammock\n"
+        "Lazybones\n"
+        "Cushion\n"
+        "Yawn\n"
+        , 57},
+};
+
+// lite/tag_risk.words
+inline constexpr std::array<std::string_view, 1> file_36{
+    std::string_view{
+        "Gambler\n"
+        "Daredevil\n"
+        "Maverick\n"
+        "Wildcard\n"
+        "Stunt\n"
+        "Roulette\n"
+        "Longshot\n"
+        "Dice\n"
+        , 65},
+};
+
+// lite/tag_routine.words
+inline constexpr std::array<std::string_view, 1> file_37{
+    std::string_view{
+        "Clock\n"
+        "Metronome\n"
+        "Habit\n"
+        "Regular\n"
+        "Steady\n"
+        "Anchor\n"
+        "Schedule\n"
+        "Rut\n"
+        , 57},
+};
+
+// lite/tag_safety.words
+inline constexpr std::array<std::string_view, 1> file_38{
+    std::string_view{
+        "Guard\n"
+        "Helmet\n"
+        "Shield\n"
+        "Lock\n"
+        "Airbag\n"
+        "Sentry\n"
+        "Seatbelt\n"
+        "Bubble\n"
+        , 55},
+};
+
+// lite/tag_social.words
+inline constexpr std::array<std::string_view, 1> file_39{
+    std::string_view{
+        "Chatty\n"
+        "Party\n"
+        "Buddy\n"
+        "Socks\n"
+        "Mixer\n"
+        "Host\n"
+        "Magnet\n"
+        "Bestie\n"
+        , 50},
+};
+
+// lite/tag_solitude.words
+inline constexpr std::array<std::string_view, 1> file_40{
+    std::string_view{
+        "Hermit\n"
+        "Lone\n"
+        "Shadow\n"
+        "Recluse\n"
+        "Island\n"
+        "Wolf\n"
+        "Solo\n"
+        "Echo\n"
+        , 49},
+};
+
+// lite/tag_solo.words
+inline constexpr std::array<std::string_view, 1> file_41{
+    std::string_view{
+        "Maverick\n"
+        "Loner\n"
+        "Single\n"
+        "Lone\n"
+        "Freelance\n"
+        "Solitaire\n"
+        "Rogue\n"
+        "Wanderer\n"
+        , 62},
+};
+
+// lite/tag_stealth.words
+inline constexpr std::array<std::string_view, 1> file_42{
+    std::string_view{
+        "Ghost\n"
+        "Shade\n"
+        "Whisper\n"
+        "Ninja\n"
+        "Sneak\n"
+        "Phantom\n"
+        "Fox\n"
+        "Cat\n"
+        , 48},
+};
+
+// lite/tag_survival.words
+inline constexpr std::array<std::string_view, 1> file_43{
+    std::string_view{
+        "Survivor\n"
+        "Cockroach\n"
+        "Bunker\n"
+        "Flint\n"
+        "Forager\n"
+        "Camper\n"
+        "Rations\n"
+        "Lifeline\n"
+        , 64},
+};
+
+// lite/tag_team.words
+inline constexpr std::array<std::string_view, 1> file_44{
+    std::string_view{
+        "Crew\n"
+        "Squad\n"
+        "Huddle\n"
+        "Pack\n"
+        "Glue\n"
+        "Tandem\n"
+        "Ally\n"
+        "Mate\n"
+        , 45},
+};
+
+// lite/tag_technical.words
+inline constexpr std::array<std::string_view, 1> file_45{
+    std::string_view{
+        "Circuit\n"
+        "Pixel\n"
+        "Gadget\n"
+        "Binary\n"
+        "Widget\n"
+        "Robo\n"
+        "Cipher\n"
+        "Debug\n"
+        , 53},
+};
+
+// lite/tag_trade.words
+inline constexpr std::array<std::string_view, 1> file_46{
+    std::string_view{
+        "Dealer\n"
+        "Haggler\n"
+        "Broker\n"
+        "Merchant\n"
+        "Barter\n"
+        "Peddler\n"
+        "Vendor\n"
+        "Tally\n"
+        , 59},
+};
+
+// lite/tag_training.words
+inline constexpr std::array<std::string_view, 1> file_47{
+    std::string_view{
+        "Rookie\n"
+        "Drill\n"
+        "Cadet\n"
+        "Grit\n"
+        "Spar\n"
+        "Regimen\n"
+        "Rep\n"
+        "Coach\n"
+        , 47},
+};
+
+// lite/tag_violence.words
+inline constexpr std::array<std::string_view, 1> file_48{
+    std::string_view{
+        "Wrecker\n"
+        "Smasher\n"
+        "Crusher\n"
+        "Viper\n"
+        "Reaper\n"
+        "Cleaver\n"
+        "Thug\n"
+        "Brute\n"
+        , 56},
+};
+
+// lite/tag_waiting.words
+inline constexpr std::array<std::string_view, 1> file_49{
+    std::string_view{
+        "Snail\n"
+        "Moss\n"
+        "Tortoise\n"
+        "Patience\n"
+        "Sloth\n"
+        "Glacier\n"
+        "Mellow\n"
+        "Oyster\n"
+        , 57},
+};
+
+// lite/tag_wealth.words
+inline constexpr std::array<std::string_view, 1> file_50{
+    std::string_view{
+        "Midas\n"
+        "Tycoon\n"
+        "Moneybags\n"
+        "Baron\n"
+        "Gilded\n"
+        "Jackpot\n"
+        "Mogul\n"
+        "Treasure\n"
+        , 59},
+};
+
+// lite/tag_willpower.words
+inline constexpr std::array<std::string_view, 1> file_51{
+    std::string_view{
+        "Granite\n"
+        "Ironclad\n"
+        "Bulldog\n"
+        "Mule\n"
+        "Anvil\n"
+        "Stone\n"
+        "Bedrock\n"
+        "Oak\n"
+        , 54},
+};
+
+inline constexpr std::array<core::embedded_file, 52> files{{
     core::embedded_file{"lite/adjectives.words", file_0},
     core::embedded_file{"lite/animals.words", file_1},
-    core::embedded_file{"lite/japanese.words", file_2},
+    core::embedded_file{"lite/colors.words", file_2},
+    core::embedded_file{"lite/food.words", file_3},
+    core::embedded_file{"lite/gems.words", file_4},
+    core::embedded_file{"lite/japanese.words", file_5},
+    core::embedded_file{"lite/myth.words", file_6},
+    core::embedded_file{"lite/nature.words", file_7},
+    core::embedded_file{"lite/space.words", file_8},
+    core::embedded_file{"lite/tag_academic.words", file_9},
+    core::embedded_file{"lite/tag_activity.words", file_10},
+    core::embedded_file{"lite/tag_art.words", file_11},
+    core::embedded_file{"lite/tag_care.words", file_12},
+    core::embedded_file{"lite/tag_caring.words", file_13},
+    core::embedded_file{"lite/tag_chaos.words", file_14},
+    core::embedded_file{"lite/tag_combat.words", file_15},
+    core::embedded_file{"lite/tag_crafting.words", file_16},
+    core::embedded_file{"lite/tag_creative.words", file_17},
+    core::embedded_file{"lite/tag_desk.words", file_18},
+    core::embedded_file{"lite/tag_discipline.words", file_19},
+    core::embedded_file{"lite/tag_dreaming.words", file_20},
+    core::embedded_file{"lite/tag_duty.words", file_21},
+    core::embedded_file{"lite/tag_exploration.words", file_22},
+    core::embedded_file{"lite/tag_faith.words", file_23},
+    core::embedded_file{"lite/tag_flight.words", file_24},
+    core::embedded_file{"lite/tag_haste.words", file_25},
+    core::embedded_file{"lite/tag_knowledge.words", file_26},
+    core::embedded_file{"lite/tag_labour.words", file_27},
+    core::embedded_file{"lite/tag_leadership.words", file_28},
+    core::embedded_file{"lite/tag_manual.words", file_29},
+    core::embedded_file{"lite/tag_medicine.words", file_30},
+    core::embedded_file{"lite/tag_morale.words", file_31},
+    core::embedded_file{"lite/tag_outdoor.words", file_32},
+    core::embedded_file{"lite/tag_physical.words", file_33},
+    core::embedded_file{"lite/tag_planning.words", file_34},
+    core::embedded_file{"lite/tag_rest.words", file_35},
+    core::embedded_file{"lite/tag_risk.words", file_36},
+    core::embedded_file{"lite/tag_routine.words", file_37},
+    core::embedded_file{"lite/tag_safety.words", file_38},
+    core::embedded_file{"lite/tag_social.words", file_39},
+    core::embedded_file{"lite/tag_solitude.words", file_40},
+    core::embedded_file{"lite/tag_solo.words", file_41},
+    core::embedded_file{"lite/tag_stealth.words", file_42},
+    core::embedded_file{"lite/tag_survival.words", file_43},
+    core::embedded_file{"lite/tag_team.words", file_44},
+    core::embedded_file{"lite/tag_technical.words", file_45},
+    core::embedded_file{"lite/tag_trade.words", file_46},
+    core::embedded_file{"lite/tag_training.words", file_47},
+    core::embedded_file{"lite/tag_violence.words", file_48},
+    core::embedded_file{"lite/tag_waiting.words", file_49},
+    core::embedded_file{"lite/tag_wealth.words", file_50},
+    core::embedded_file{"lite/tag_willpower.words", file_51},
 }};
 // clang-format on
 

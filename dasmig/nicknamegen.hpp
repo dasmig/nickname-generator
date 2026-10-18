@@ -48,6 +48,17 @@ struct nickname_request
     /// name, one in four nicknames is derived from it; without word lists,
     /// the name is always used.
     std::wstring name{};
+
+    /// @brief Themes the nickname may be drawn from, as plain strings.
+    ///
+    /// Typically the tags of a character's traits and job (`"combat"`,
+    /// `"leadership"`, `"manual"`, ...), as trait-generator and
+    /// occupation-generator give them; no dependency on either. A tag that
+    /// has a `tag_<tag>.words` list is a theme, and with at least one theme
+    /// one nickname in three is a word of a theme (a theme chosen uniformly,
+    /// then a word), unless the name takes the nickname first. Tags without a
+    /// list are ignored. The default is no themes.
+    std::vector<std::string> tags{};
 };
 
 /// @brief Return type for nickname generation, holding both the transformed
@@ -203,7 +214,7 @@ class nng
                                         std::uint64_t call_seed) const
     {
         auto r = core::rng{call_seed}.split("nickname");
-        auto result = solver(request.name, r);
+        auto result = solver(request, r);
         result._signature = {.seed = call_seed, .data = data_hash()};
         return result;
     }
@@ -430,8 +441,9 @@ class nng
     static constexpr std::string_view library_name_ = "nickname-generator";
     static constexpr std::string_view shipped_tier_ = "lite";
     static constexpr std::string_view marker_list_ = "animals";
-    static constexpr std::array<std::string_view, 3> shipped_lists_{"adjectives", "animals",
-                                                                     "japanese"};
+    // Lists named tag_<tag> are themes, drawn only for a request's tags.
+    static constexpr std::string_view tag_prefix_ = "tag_";
+    static constexpr std::array<std::string_view, 52> shipped_lists_{"adjectives", "animals", "colors", "food", "gems", "japanese", "myth", "nature", "space", "tag_academic", "tag_activity", "tag_art", "tag_care", "tag_caring", "tag_chaos", "tag_combat", "tag_crafting", "tag_creative", "tag_desk", "tag_discipline", "tag_dreaming", "tag_duty", "tag_exploration", "tag_faith", "tag_flight", "tag_haste", "tag_knowledge", "tag_labour", "tag_leadership", "tag_manual", "tag_medicine", "tag_morale", "tag_outdoor", "tag_physical", "tag_planning", "tag_rest", "tag_risk", "tag_routine", "tag_safety", "tag_social", "tag_solitude", "tag_solo", "tag_stealth", "tag_survival", "tag_team", "tag_technical", "tag_trade", "tag_training", "tag_violence", "tag_waiting", "tag_wealth", "tag_willpower"};
 
     // Function pointer type for nickname transform methods.
     using generator_fn = std::wstring (*)(const std::wstring&, core::rng&);
@@ -465,6 +477,7 @@ class nng
     // filesystem), and the words in use, rebuilt after every change.
     std::map<std::string, core::layered_table, std::less<>> _lists;
     std::vector<std::vector<std::wstring>> _wordlists;
+    std::map<std::string, std::vector<std::wstring>, std::less<>> _themes; // by tag
 
     core::rng _engine{core::rng::from_entropy()};
 
@@ -539,15 +552,25 @@ class nng
             });
         }
         std::vector<std::vector<std::wstring>> wordlists;
+        std::map<std::string, std::vector<std::wstring>, std::less<>> themes;
         for (const auto& [name, table] : next)
         {
             std::vector<std::wstring> words;
             words.reserve(table.size());
             for (const auto& row : table.rows()) words.push_back(core::from_utf8(row["word"]));
-            if (!words.empty()) wordlists.push_back(std::move(words));
+            if (words.empty()) continue;
+            if (name.starts_with(tag_prefix_))
+            {
+                themes.emplace(name.substr(tag_prefix_.size()), std::move(words));
+            }
+            else
+            {
+                wordlists.push_back(std::move(words));
+            }
         }
         _lists = std::move(next);
         _wordlists = std::move(wordlists);
+        _themes = std::move(themes);
     }
 
     // -- Case mapping -----------------------------------------------------
@@ -1059,14 +1082,33 @@ class nng
         return single_name;
     }
 
+    // The theme lists for a request's tags, each once, in the request's order;
+    // tags without a list are left out.
+    [[nodiscard]] std::vector<const std::vector<std::wstring>*> themes_of_(
+        const std::vector<std::string>& tags) const
+    {
+        std::vector<const std::vector<std::wstring>*> themes;
+        for (const auto& tag : tags)
+        {
+            const auto it = _themes.find(tag);
+            if (it == _themes.end()) continue;
+            if (std::ranges::find(themes, &it->second) == themes.end()) themes.push_back(&it->second);
+        }
+        return themes;
+    }
+
     // Contains logic to generate a random nickname optionally based on the
     // player full name.
-    [[nodiscard]] nickname solver(const std::wstring& name, core::rng& engine) const
+    [[nodiscard]] nickname solver(const nickname_request& request, core::rng& engine) const
     {
+        const std::wstring& name = request.name;
         std::wstring original;
         std::wstring nick;
         // 1/4 chance of nickname being name related.
         static constexpr double name_related_probability{0.25};
+        // 1/3 chance of a themed word when the request has a theme (always, if no
+        // plain list is loaded).
+        static constexpr double theme_probability{1.0 / 3.0};
         // Always use the name if there are no word lists to fall back to.
         const bool has_name = !split_name(name).empty();
         const bool use_name =
@@ -1087,6 +1129,12 @@ class nng
             };
             original = name;
             nick = core::pick(engine, possible_generators)(name, engine);
+        }
+        else if (const auto themes = themes_of_(request.tags);
+                 !themes.empty() && (_wordlists.empty() || core::bernoulli(engine, theme_probability)))
+        {
+            const auto* drawn_theme = core::pick(engine, themes);
+            nick = original = core::pick(engine, *drawn_theme);
         }
         else if (!_wordlists.empty())
         {
