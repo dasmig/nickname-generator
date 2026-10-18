@@ -78,8 +78,17 @@ struct nickname_request
     /// lists ("swiftfox", "quiet_otter"), with digits about half the time.
     /// Accents are folded to ASCII ("jose" for "José") and characters
     /// that have no ASCII form are dropped; a name with no letters left is
-    /// treated as no name.
+    /// treated as no name. A username sometimes gets a prefix ("real", "the",
+    /// "its") or a suffix ("official", "hq", "irl"), about one in thirteen.
     nickname_style style{nickname_style::gaming};
+
+    /// @brief Birth year, for the digits of a username.
+    ///
+    /// With a year from 1900 to 2100, the digits of a username are often the
+    /// year, as two or four digits ("john.smith92", "jsmith1992"). Without it
+    /// they are a made-up year, a small or lucky number, or a pattern.
+    /// Ignored by the gaming style.
+    std::optional<int> birth_year{};
 };
 
 /// @brief Return type for nickname generation, holding both the transformed
@@ -1205,58 +1214,157 @@ class nng
         return word.empty() ? L"user" : word;
     }
 
-    // Digits at the end of a username, about half the time.
-    [[nodiscard]] static std::wstring username_digits_(core::rng& engine)
+    // Picks an index by weights that add up to 100.
+    template <std::size_t N>
+    [[nodiscard]] static std::size_t weighted_index_(core::rng& engine, const std::array<int, N>& weights)
     {
-        const auto kind = core::uniform_int(engine, 0, 19);
-        if (kind < 9) return {};
+        auto r = core::uniform_int(engine, 0, 99);
+        for (std::size_t i = 0; i < N; ++i)
+        {
+            if (r < weights[i]) return i;
+            r -= weights[i];
+        }
+        return N - 1;
+    }
+
+    // Two digits of a year, or four.
+    [[nodiscard]] static std::wstring year_digits_(int year, bool two)
+    {
+        if (!two) return std::to_wstring(year);
+        const int yy = year % 100;
+        return (yy < 10 ? L"0" : L"") + std::to_wstring(yy);
+    }
+
+    // Digits at the end of a username: a year, a small or lucky number, a
+    // pattern, or none.
+    [[nodiscard]] static std::wstring username_digits_(const std::optional<int>& birth_year,
+                                                       core::rng& engine)
+    {
+        static constexpr std::array<std::wstring_view, 9> lucky{L"7",  L"13", L"21", L"23", L"42",
+                                                                 L"77", L"88", L"99", L"100"};
+        static constexpr std::array<std::wstring_view, 8> patterns{L"01", L"007", L"123", L"1234",
+                                                                    L"11", L"12",  L"00",  L"10"};
+        const bool known = birth_year && *birth_year >= 1900 && *birth_year <= 2100;
+        // none, two-digit year, four-digit year, small, lucky, pattern, long
+        static constexpr std::array<int, 7> unknown_weights{40, 20, 4, 14, 6, 6, 10};
+        static constexpr std::array<int, 7> known_weights{30, 28, 14, 8, 5, 5, 10};
         std::wstring digits;
-        if (kind < 14) // a two-digit year: 70 to 99, then 00 to 09
+        switch (weighted_index_(engine, known ? known_weights : unknown_weights))
         {
-            const auto year = (70 + core::uniform_int(engine, 0, 39)) % 100;
-            digits = (year < 10 ? L"0" : L"") + std::to_wstring(year);
-        }
-        else if (kind < 18) // one or two digits
-        {
+        case 0:
+            return {};
+        case 1:
+            digits = year_digits_(known ? *birth_year : 1970 + core::uniform_int(engine, 0, 39), true);
+            break;
+        case 2:
+            digits = year_digits_(known ? *birth_year : core::uniform_int(engine, 1970, 2008), false);
+            break;
+        case 3:
             digits = std::to_wstring(core::uniform_int(engine, 1, 99));
-        }
-        else // three or four digits
-        {
+            break;
+        case 4:
+            digits = std::wstring{core::pick(engine, lucky)};
+            break;
+        case 5:
+            digits = std::wstring{core::pick(engine, patterns)};
+            break;
+        default:
             digits = std::to_wstring(core::uniform_int(engine, 100, 9999));
+            break;
         }
-        if (core::bernoulli(engine, 0.15)) digits.insert(0, 1, L'_');
+        if (core::bernoulli(engine, 0.12)) digits.insert(0, 1, L'_');
         return digits;
+    }
+
+    // Words that sit between the parts of a name and are not a name of their own.
+    [[nodiscard]] static bool is_particle_(const std::wstring& part)
+    {
+        static const std::array<std::wstring_view, 22> particles{
+            L"da", L"das", L"de",  L"del", L"della", L"di", L"do",  L"dos", L"du",  L"la", L"le",
+            L"van", L"von", L"der", L"den", L"ten",  L"ter", L"bin", L"ibn", L"al", L"el", L"y"};
+        return std::ranges::find(particles, part) != particles.end();
     }
 
     // The name in one of the shapes usernames take.
     [[nodiscard]] static std::wstring username_from_name_(const std::vector<std::wstring>& parts,
                                                           core::rng& engine)
     {
-        const std::wstring& first = parts.front();
-        const std::wstring& last = parts.back();
-        if (parts.size() == 1) return first;
-        switch (core::uniform_int(engine, 0, 19))
+        // The name's parts without the particles between them ("da", "von", ...).
+        std::vector<std::wstring> names;
+        for (std::size_t i = 0; i < parts.size(); ++i)
         {
-        case 0: case 1: case 2: case 3: case 4:
-            return first + L"." + last;                          // john.smith
-        case 5: case 6: case 7: case 8:
-            return first + last;                                 // johnsmith
-        case 9: case 10:
-            return first + L"_" + last;                          // john_smith
-        case 11: case 12: case 13:
-            return first.substr(0, 1) + last;                    // jsmith
-        case 14:
-            return first.substr(0, 1) + L"." + last;             // j.smith
-        case 15:
-            return first + L"." + last.substr(0, 1);             // john.s
-        case 16:
-            return first + last.substr(0, 1);                    // johns
-        case 17:
-            return last + L"." + first;                          // smith.john
-        case 18:
-            return last + L"_" + first;                          // smith_john
-        default:
-            return last + first.substr(0, 1);                    // smithj
+            const bool inner = i > 0 && i + 1 < parts.size();
+            if (!(inner && is_particle_(parts[i]))) names.push_back(parts[i]);
+        }
+        const std::wstring& given = names.front();
+        if (names.size() == 1) return given;
+
+        // With three or more names, the middle one is a middle name or the first
+        // of two family names, and the family name may be either of the last two.
+        std::wstring family = names.back();
+        std::wstring middle;
+        if (names.size() >= 3)
+        {
+            const bool middle_name = core::bernoulli(engine, 0.5);
+            if (middle_name)
+            {
+                middle = names[1];
+            }
+            else if (core::bernoulli(engine, 0.4))
+            {
+                family = names[names.size() - 2];
+            }
+        }
+        const std::wstring g = given.substr(0, 1);
+        const std::wstring f = family.substr(0, 1);
+
+        if (!middle.empty() && core::bernoulli(engine, 0.4))
+        {
+            const std::wstring m = middle.substr(0, 1);
+            switch (core::uniform_int(engine, 0, 5))
+            {
+            case 0: return given + L"." + m + L"." + family; // john.m.smith
+            case 1: return given + m + family;               // johnmsmith
+            case 2: return g + m + family;                   // jmsmith
+            case 3: return given + L"_" + m + L"_" + family; // john_m_smith
+            case 4: return g + m + L"." + family;            // jm.smith
+            default: return given + middle;                  // johnmichael
+            }
+        }
+
+        // given.family, givenfamily, given_family, gfamily, g.family, given.f,
+        // givenf, family.given, family_given, familyg
+        static constexpr std::array<int, 10> weights{22, 17, 9, 14, 5, 5, 6, 8, 5, 9};
+        switch (weighted_index_(engine, weights))
+        {
+        case 0: return given + L"." + family;
+        case 1: return given + family;
+        case 2: return given + L"_" + family;
+        case 3: return g + family;
+        case 4: return g + L"." + family;
+        case 5: return given + L"." + f;
+        case 6: return given + f;
+        case 7: return family + L"." + given;
+        case 8: return family + L"_" + given;
+        default: return family + g;
+        }
+    }
+
+    // A prefix or a suffix, about one username in thirteen.
+    static void username_affix_(std::wstring& base, core::rng& engine)
+    {
+        static constexpr std::array<std::wstring_view, 6> prefixes{L"the", L"real", L"its", L"iam", L"hey", L"just"};
+        static constexpr std::array<std::wstring_view, 6> suffixes{L"official", L"real", L"hq", L"irl", L"online", L"hi"};
+        if (!core::bernoulli(engine, 1.0 / 13.0)) return;
+        if (core::bernoulli(engine, 0.5))
+        {
+            const std::wstring prefix{core::pick(engine, prefixes)};
+            base = prefix + (core::bernoulli(engine, 0.3) ? L"_" : L"") + base;
+        }
+        else
+        {
+            const std::wstring suffix{core::pick(engine, suffixes)};
+            base += (core::bernoulli(engine, 0.6) ? L"_" : L"") + suffix;
         }
     }
 
@@ -1288,8 +1396,9 @@ class nng
                 }
             }
         }
+        username_affix_(base, engine);
 
-        const std::wstring digits = username_digits_(engine);
+        const std::wstring digits = username_digits_(request.birth_year, engine);
         if (base.size() + digits.size() > username_max_length_)
         {
             base.resize(username_max_length_ - std::min(digits.size(), username_max_length_ - 1));
