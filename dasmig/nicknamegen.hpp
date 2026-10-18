@@ -6,6 +6,7 @@
 
 #include "core.hpp"
 #include <algorithm>
+#include <cmath>
 #include <array>
 #include <cstddef>
 #include <cstdint>
@@ -477,6 +478,7 @@ class nng
     // filesystem), and the words in use, rebuilt after every change.
     std::map<std::string, core::layered_table, std::less<>> _lists;
     std::vector<std::vector<std::wstring>> _wordlists;
+    core::discrete _list_choice{1.0}; // over _wordlists, by the square root of their sizes
     std::map<std::string, std::vector<std::wstring>, std::less<>> _themes; // by tag
 
     core::rng _engine{core::rng::from_entropy()};
@@ -569,6 +571,16 @@ class nng
             }
         }
         _lists = std::move(next);
+        // A list's chance grows with its size, but only by the square root, so
+        // a long list does not drown a short one and a short one does not
+        // take over from a long one.
+        if (!wordlists.empty())
+        {
+            std::vector<double> weights;
+            weights.reserve(wordlists.size());
+            for (const auto& list : wordlists) weights.push_back(std::sqrt(static_cast<double>(list.size())));
+            _list_choice = core::discrete{weights};
+        }
         _wordlists = std::move(wordlists);
         _themes = std::move(themes);
     }
@@ -1138,7 +1150,7 @@ class nng
         }
         else if (!_wordlists.empty())
         {
-            const auto& drawn_wordlist = core::pick(engine, _wordlists);
+            const auto& drawn_wordlist = _wordlists[_list_choice(engine)];
             nick = original = core::pick(engine, drawn_wordlist);
         }
         else

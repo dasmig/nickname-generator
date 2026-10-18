@@ -1060,16 +1060,16 @@ TEST_CASE("known answers for fixed seeds", "[kat]")
 {
     dasmig::nng g;
     g.load(resource_path());
-    REQUIRE(g.data_hash() == 0x7f65fd3034dd82a6ULL);
+    REQUIRE(g.data_hash() == 0xc2a4fee0b536a8a1ULL);
     const auto lists = g.list_names();
     REQUIRE(lists.size() == 52);
     REQUIRE(std::ranges::count_if(lists, [](const std::string& n) { return n.starts_with("tag_"); }) == 43);
     REQUIRE(std::ranges::find(lists, "colors") != lists.end());
 
     REQUIRE(g.get_nickname({.name = L"Alberto Bins Elis"}, 1).to_json() ==
-            R"({"nickname":"Mustaard","source":"Mustard","signature":{"seed":"0000000000000001","data":"7f65fd3034dd82a6"}})");
+            R"({"nickname":"Mooth","source":"Moth","signature":{"seed":"0000000000000001","data":"c2a4fee0b536a8a1"}})");
     REQUIRE(g.get_nickname({}, 2).to_json() ==
-            R"({"nickname":"elbmarB","source":"Bramble","signature":{"seed":"0000000000000002","data":"7f65fd3034dd82a6"}})");
+            R"({"nickname":"sumuH","source":"Humus","signature":{"seed":"0000000000000002","data":"c2a4fee0b536a8a1"}})");
 
     // Accented names: the case mapping does not depend on the locale.
     const std::wstring accented = L"José García Élodie";
@@ -1088,7 +1088,7 @@ TEST_CASE("known answers for fixed seeds", "[kat]")
             h *= 0x100000001b3ULL;
         }
     }
-    REQUIRE(h == 0x27ca9abde95e174aULL);
+    REQUIRE(h == 0xf3e27cea9880b9aaULL);
 }
 
 TEST_CASE("case changes use a fixed mapping", "[case]")
@@ -1187,7 +1187,7 @@ TEST_CASE("compiled-in data needs no files and matches them", "[embed]")
 
     REQUIRE(loaded);
     REQUIRE(g.layers("animals").front().source == "embedded:lite/animals.words");
-    REQUIRE(g.data_hash() == 0x7f65fd3034dd82a6ULL); // same as the files
+    REQUIRE(g.data_hash() == 0xc2a4fee0b536a8a1ULL); // same as the files
 }
 #endif
 
@@ -1256,7 +1256,7 @@ TEST_CASE("nickname batch: known answer of 10,000 items", "[batch][kat]")
     gen.for_each_nickname(request, {.count = 10000, .threads = 4}, 1,
                         [&](std::uint64_t, const dasmig::nickname& item)
                         { hash = dasmig::core::hash_combine(hash, dasmig::core::fnv1a64(item.to_json())); });
-    REQUIRE(hash == 0xbdced950d33acb51ULL);
+    REQUIRE(hash == 0x16a4c07ab3a0be53ULL);
 }
 
 // ---------------------------------------------------------------------------
@@ -1400,4 +1400,96 @@ TEST_CASE("tags: with only themes loaded, a tagged request uses them", "[tags]")
     REQUIRE_FALSE(g.has_wordlists());
     REQUIRE(g.get_nickname({.tags = {"pirate"}}, 1).plain() == L"Blackbeard");
     REQUIRE_THROWS_AS(g.get_nickname({}, 1), std::invalid_argument);
+}
+
+// ---------------------------------------------------------------------------
+// The shipped lists are big enough, and a list's chance follows its size
+// ---------------------------------------------------------------------------
+
+namespace
+{
+std::size_t word_count(const std::filesystem::path& file)
+{
+    return dasmig::core::tsv_document::load(file, {"word"}).size();
+}
+} // namespace
+
+TEST_CASE("shipped lists have enough words to avoid repeats", "[lists]")
+{
+    // A short list would be drawn often and repeat; these floors guard against
+    // shipping one (a theme is drawn a third of the time for a tagged request).
+    constexpr std::size_t plain_floor = 150;
+    constexpr std::size_t theme_floor = 24;
+    std::size_t plain = 0;
+    std::size_t themes = 0;
+    for (const auto& entry : std::filesystem::directory_iterator(resource_path() / "lite"))
+    {
+        if (entry.path().extension() != ".words") continue;
+        const auto name = entry.path().stem().string();
+        const auto words = word_count(entry.path());
+        if (name.starts_with("tag_"))
+        {
+            ++themes;
+            INFO(name);
+            REQUIRE(words >= theme_floor);
+        }
+        else
+        {
+            ++plain;
+            INFO(name);
+            REQUIRE(words >= plain_floor);
+        }
+    }
+    REQUIRE(plain == 9);
+    REQUIRE(themes == 43);
+}
+
+TEST_CASE("a list's chance grows with the square root of its size", "[lists][seed]")
+{
+    dasmig::nng g;
+    g.extend_from_string("small", "word\n" + [] {
+        std::string rows;
+        for (int i = 0; i < 100; ++i) rows += "S" + std::to_string(i) + "\n";
+        return rows;
+    }(), "small.tsv");
+    g.extend_from_string("big", "word\n" + [] {
+        std::string rows;
+        for (int i = 0; i < 10000; ++i) rows += "B" + std::to_string(i) + "\n";
+        return rows;
+    }(), "big.tsv");
+    // Weights 10 and 100: the big list is drawn 10 times as often as the small
+    // one (it has 100 times the words), not 100 times, and not equally.
+    int small = 0;
+    int big = 0;
+    constexpr int n = 22000;
+    for (int i = 0; i < n; ++i)
+    {
+        const auto source = g.get_nickname({}, static_cast<std::uint64_t>(i)).plain();
+        if (source.starts_with(L"S")) ++small;
+        if (source.starts_with(L"B")) ++big;
+    }
+    REQUIRE(small + big == n);
+    REQUIRE(big > 9.0 * small);
+    REQUIRE(big < 11.5 * small);
+}
+
+TEST_CASE("the large shipped list still gets a large share", "[lists]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    const auto adjectives = [] {
+        std::set<std::wstring> words;
+        const auto doc = dasmig::core::tsv_document::load(resource_path() / "lite" / "adjectives.words", {"word"});
+        for (const auto& row : doc.rows()) words.insert(dasmig::core::from_utf8(row["word"]));
+        return words;
+    }();
+    int from_adjectives = 0;
+    constexpr int n = 8000;
+    for (int i = 0; i < n; ++i)
+    {
+        if (adjectives.contains(g.get_nickname({}, static_cast<std::uint64_t>(i)).plain())) ++from_adjectives;
+    }
+    // About 37%: far above an even ninth, far below its 4,842-word size share.
+    REQUIRE(from_adjectives > n * 0.30);
+    REQUIRE(from_adjectives < n * 0.50);
 }
