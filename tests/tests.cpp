@@ -1552,15 +1552,26 @@ TEST_CASE("username: from a name it takes one of the common shapes", "[username]
     const std::set<std::string> shapes{"john.smith", "johnsmith", "john_smith", "jsmith", "j.smith",
                                        "john.s",     "johns",     "smith.john", "smith_john", "smithj"};
     std::set<std::string> seen;
-    for (std::uint64_t seed = 0; seed < 3000; ++seed)
+    int exact = 0;
+    constexpr int n = 4000;
+    for (std::uint64_t seed = 0; seed < n; ++seed)
     {
         const auto nick = ascii_of(std::wstring{g.get_nickname({.name = L"John Smith", .style = username_style}, seed)});
         const auto base = without_digits(nick);
         INFO(nick);
-        REQUIRE(shapes.contains(base));
-        seen.insert(base);
+        if (shapes.contains(base))
+        {
+            ++exact;
+            seen.insert(base);
+        }
+        else
+        {
+            // Otherwise a shape with a prefix or a suffix around it.
+            REQUIRE(std::ranges::any_of(shapes, [&](const std::string& s) { return base.find(s) != std::string::npos; }));
+        }
     }
     REQUIRE(seen == shapes); // every shape turns up
+    REQUIRE(exact > n * 0.90); // all but about one in thirteen
 }
 
 TEST_CASE("username: a name always gives a name-based username, and plain() is the name", "[username]")
@@ -1688,4 +1699,122 @@ TEST_CASE("username: no lists still works from a name, and throws without one", 
     REQUIRE_FALSE(g.has_wordlists());
     REQUIRE(is_username(ascii_of(std::wstring{g.get_nickname({.name = L"John Smith", .style = username_style}, 1)})));
     REQUIRE_THROWS_AS(g.get_nickname({.style = username_style}, 1), std::invalid_argument);
+}
+
+TEST_CASE("username: a prefix or a suffix goes on about one in thirteen", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    int affixed = 0;
+    constexpr int n = 6000;
+    for (std::uint64_t seed = 0; seed < n; ++seed)
+    {
+        const auto base = without_digits(
+            ascii_of(std::wstring{g.get_nickname({.name = L"John Smith", .style = username_style}, seed)}));
+        for (const std::string_view affix : {"the", "real", "its", "iam", "hey", "just", "official", "hq", "irl", "online", "hi"})
+        {
+            if (base.starts_with(affix) || base.ends_with(affix))
+            {
+                ++affixed;
+                break;
+            }
+        }
+    }
+    REQUIRE(affixed > n / 13.0 * 0.8);
+    REQUIRE(affixed < n / 13.0 * 1.25);
+}
+
+TEST_CASE("username: a birth year shows up in the digits", "[username][birth-year]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    int year2 = 0;
+    int year4 = 0;
+    int none = 0;
+    constexpr int n = 6000;
+    for (std::uint64_t seed = 0; seed < n; ++seed)
+    {
+        const auto text = ascii_of(std::wstring{
+            g.get_nickname({.name = L"John Smith", .style = username_style, .birth_year = 1992}, seed)});
+        if (text.ends_with("1992")) ++year4;
+        else if (text.ends_with("92")) ++year2;
+        if (text.back() < '0' || text.back() > '9') ++none;
+    }
+    REQUIRE(year2 > n * 0.22); // 28% of the digits are the two-digit year
+    REQUIRE(year4 > n * 0.10); // and 14% the four-digit year
+    REQUIRE(none > n * 0.25);
+    REQUIRE(none < n * 0.36);
+
+    // Without a year, none of that: 1992 is no likelier than any other year.
+    int unknown = 0;
+    for (std::uint64_t seed = 0; seed < n; ++seed)
+    {
+        if (ascii_of(std::wstring{g.get_nickname({.name = L"John Smith", .style = username_style}, seed)}).ends_with("1992"))
+            ++unknown;
+    }
+    REQUIRE(unknown < n * 0.01);
+}
+
+TEST_CASE("username: a year out of range is ignored", "[username][birth-year]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    for (std::uint64_t seed = 0; seed < 200; ++seed)
+    {
+        REQUIRE(g.get_nickname({.name = L"John Smith", .style = username_style, .birth_year = 5}, seed).to_json() ==
+                g.get_nickname({.name = L"John Smith", .style = username_style}, seed).to_json());
+    }
+}
+
+TEST_CASE("username: a middle name gives middle shapes", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    std::set<std::string> bases;
+    for (std::uint64_t seed = 0; seed < 8000; ++seed)
+    {
+        bases.insert(without_digits(
+            ascii_of(std::wstring{g.get_nickname({.name = L"John Michael Smith", .style = username_style}, seed)})));
+    }
+    REQUIRE(bases.contains("john.m.smith"));
+    REQUIRE(bases.contains("johnmsmith"));
+    REQUIRE(bases.contains("jmsmith"));
+    REQUIRE(bases.contains("john.smith"));
+    REQUIRE(bases.contains("johnmichael"));
+}
+
+TEST_CASE("username: particles are left out and a double surname gives either", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    std::set<std::string> bases;
+    for (std::uint64_t seed = 0; seed < 8000; ++seed)
+    {
+        const auto base = without_digits(
+            ascii_of(std::wstring{g.get_nickname({.name = L"Maria da Silva Santos", .style = username_style}, seed)}));
+        REQUIRE(base.find("da") == std::string::npos);
+        bases.insert(base);
+    }
+    REQUIRE(bases.contains("maria.santos"));
+    REQUIRE(bases.contains("maria.silva"));
+    REQUIRE(bases.contains("msantos"));
+    REQUIRE(bases.contains("msilva"));
+}
+
+TEST_CASE("username: a particle at either end of a name is kept", "[username]")
+{
+    dasmig::nng g;
+    g.load(resource_path());
+    std::set<std::string> bases;
+    for (std::uint64_t seed = 0; seed < 2000; ++seed)
+    {
+        bases.insert(without_digits(ascii_of(std::wstring{g.get_nickname({.name = L"Anh Do", .style = username_style}, seed)})));
+    }
+    REQUIRE(bases.contains("anh.do"));
+    bases.clear();
+    for (std::uint64_t seed = 0; seed < 2000; ++seed)
+    {
+        bases.insert(without_digits(ascii_of(std::wstring{g.get_nickname({.name = L"Van Helsing", .style = username_style}, seed)})));
+    }
+    REQUIRE(bases.contains("van.helsing"));
 }

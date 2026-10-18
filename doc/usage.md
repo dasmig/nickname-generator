@@ -190,9 +190,13 @@ auto a = gen.get_nickname({.name = L"José García", .style = dasmig::nickname_s
 // Without a name: one or two words, digits about half the time.
 auto b = gen.get_nickname({.style = dasmig::nickname_style::username}, 2);
 // "swiftfox", "quiet_otter", "lemonade.prize", ...
+
+// With a birth year, the digits are often the year.
+auto c = gen.get_nickname({.name = L"John Smith", .style = dasmig::nickname_style::username, .birth_year = 1992}, 3);
+// "john.smith92", "jsmith1992", "smith_john", ...
 ```
 
-A username is lowercase ASCII letters and digits, at most 24 characters, with `.` or `_` between parts and never at the end. Accents are folded (`é` is `e`) and characters with no ASCII form are dropped, so a name in another script gives word-based usernames. `tags` work as for a gaming handle: a themed word is the first word. `plain()` is the name, or the words joined by a space. The default style is unchanged. See [Data and Method](data.md) for the shapes and their chances.
+A username is lowercase ASCII letters and digits, at most 24 characters, with `.` or `_` between parts and never at the end. From a name it takes the shapes people use (`john.smith`, `johnsmith`, `jsmith`, `smith_john`, ...), with a middle name (`john.m.smith`, `jmsmith`) when there is one, and leaves out particles (`da`, `von`); a double surname gives either name. About one in thirteen gets a prefix or a suffix (`real`, `the_`, `_official`, `hq`). Digits are often a year: pass `birth_year` and the two- or four-digit year is the most likely ending (`john.smith92`, `jsmith1992`); without it they are a made-up year, a small or lucky number or a pattern. Accents are folded (`é` is `e`) and characters with no ASCII form are dropped, so a name in another script gives word-based usernames. `tags` work as for a gaming handle: a themed word is the first word. `plain()` is the name, or the words joined by a space. The default style is unchanged. See [Data and Method](data.md) for the shapes and their chances.
 
 ## Tags
 
