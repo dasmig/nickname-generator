@@ -19,6 +19,7 @@ This guide covers every feature of the nickname-generator library in detail. For
 <li><a href="#extending-data">Extending Data</a></li>
 <li><a href="#replay-and-json">Replay and JSON</a></li>
 <li><a href="#compiled-in-data">Compiled-in Data</a></li>
+<li><a href="#migrating-to-v5">Migrating to v5</a></li>
 <li><a href="#migrating-to-v4">Migrating to v4</a></li>
 <li><a href="#request-api-migration">Request API Migration</a></li>
 <li><a href="#migrating-from-v1">Migrating from v1</a></li>
@@ -153,7 +154,7 @@ There is also a 1 % chance of `snake_case` being applied first (`Nick_Name`).
 
 ## Word Lists
 
-The library ships nine plain word lists and 43 theme lists in `resources/lite/` (see [Data and Method](data.md)):
+The library ships nine plain word lists and 43 theme lists in `resources/lite/` (see [Data and Method](data.md)); every shipped plain list has at least 150 words and every theme at least 24:
 
 | File | Contents |
 |------|----------|
@@ -165,8 +166,9 @@ The library ships nine plain word lists and 43 theme lists in `resources/lite/` 
 
 A `.words` file has one word per line; the list's name is the file name.
 Lists of your own are added with `extend()` (see Extending Data).
-A list is chosen uniformly, then a word from it, so a short list's words come
-up more often than a long list's.
+A list is chosen with a chance proportional to the square root of its word
+count, then a word from it uniformly, so a long list is drawn more often than a
+short one, but a 100-times longer list only 10 times as often.
 
 ## Tags
 
@@ -369,6 +371,10 @@ Define `DASMIG_NICKNAME_EMBED` before including the header to compile the word l
 ```
 
 `dasmig/nicknamegen_data.hpp` is generated from `resources/lite` by `make embed`; CI checks it is up to date.
+
+## Migrating to v5
+
+Version 5 draws the list in proportion to the square root of its size instead of uniformly, adds 84 animals, and makes the lists added in version 4 (and the themes) several times longer. The same seed gives a different nickname than in v4. The API is unchanged. Update any known answers; the `data_hash()` changes with the word lists.
 
 ## Migrating to v4
 
