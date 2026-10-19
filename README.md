@@ -37,6 +37,8 @@ The library currently supports the following:
 
 - **Resource Inspection**. `has_wordlists()` and `list_names()` let you verify what is loaded before generating.
 
+- **Deterministic Seeding**. `get_nickname(request, seed)` is a pure function of the request, the seed and the word lists, and `nickname::seed()` replays a previous nickname.
+
 - **Batch Generation**. Generate thousands of results from one seed, on several threads with the same output for any thread count, optionally unique by a key, and stream them as JSON Lines or CSV (see the usage guide).
 
 - **Identical Everywhere**. A seed gives the same nickname on every compiler, standard library and CPU (GCC, Clang, MSVC, Emscripten; x86-64 and ARM64), checked by known-answer tests. Case changes do not depend on the locale.
